@@ -93,6 +93,12 @@ class DiaryRepository {
     return message;
   }
 
+  /// 항목의 첫 사용자 메시지 (잉크 썸네일용).
+  Future<ChatMessage?> firstUserMessage(String entryId) async {
+    final row = await _db.firstUserMessage(entryId);
+    return row == null ? null : _toMessage(row);
+  }
+
   /// AI 기억 블록용 최근 일기 스니펫 (최신순).
   Future<List<EntrySnippet>> recentEntrySnippets({int limit = 5}) async {
     final messages = await _db.firstUserMessagesOfRecentEntries(limit);

@@ -61,6 +61,15 @@ class AppDatabase extends _$AppDatabase {
         .get();
   }
 
+  /// 항목의 첫 사용자 메시지 (타임라인 잉크 썸네일용).
+  Future<Message?> firstUserMessage(String entryId) {
+    return (select(messages)
+          ..where((t) => t.entryId.equals(entryId) & t.role.equals('user'))
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   /// AI 기억 블록용: 최근 항목들의 사용자 텍스트 스니펫.
   Future<List<Message>> firstUserMessagesOfRecentEntries(int limit) async {
     final recent = await (select(entries)
