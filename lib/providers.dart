@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'data/db/app_database.dart';
 import 'data/repositories/diary_repository.dart';
 import 'data/repositories/settings_repository.dart';
+import 'services/ai/gemini_client.dart';
 import 'services/handwriting/fake_recognizer.dart';
 import 'services/handwriting/mlkit_recognizer.dart';
 import 'services/handwriting/recognizer.dart';
@@ -31,6 +32,12 @@ final recognizerProvider = Provider<HandwritingRecognizer>((ref) {
   final recognizer = isMobile ? MlKitRecognizer() : FakeRecognizer();
   ref.onDispose(recognizer.dispose);
   return recognizer;
+});
+
+final geminiClientProvider = Provider<GeminiClient>((ref) {
+  final client = GeminiClient();
+  ref.onDispose(client.dispose);
+  return client;
 });
 
 /// 현재 쓰기 언어 (BCP-47). 시작 시 설정에서 불러온다.
