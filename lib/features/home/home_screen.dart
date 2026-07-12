@@ -32,21 +32,23 @@ class HomeScreen extends ConsumerWidget {
     final languageTag = ref.read(languageTagProvider);
 
     // 언어 모델이 준비됐는지 먼저 확인 (첫 실행 UX).
-    final ok = await ensureLanguageModel(
-        context, ref.read(recognizerProvider), languageTag);
-    if (!ok || !context.mounted) return;
+    // 모델 확인/다운로드가 실패해도 일기 작성 자체는 막지 않는다 —
+    // 인식만 안 될 뿐 잉크는 저장된다.
+    try {
+      await ensureLanguageModel(
+          context, ref.read(recognizerProvider), languageTag);
+    } catch (_) {}
+    if (!context.mounted) return;
 
     // 오늘 이미 쓰던 일기가 있으면 이어서, 없으면 새로 만든다.
-    final entries = await repo.watchEntries().first;
+    final latest = await repo.latestEntry();
     final now = DateTime.now();
     DiaryEntry? today;
-    for (final e in entries) {
-      if (e.updatedAt.year == now.year &&
-          e.updatedAt.month == now.month &&
-          e.updatedAt.day == now.day) {
-        today = e;
-        break;
-      }
+    if (latest != null &&
+        latest.updatedAt.year == now.year &&
+        latest.updatedAt.month == now.month &&
+        latest.updatedAt.day == now.day) {
+      today = latest;
     }
     today ??= await repo.createEntry(languageTag: languageTag);
 

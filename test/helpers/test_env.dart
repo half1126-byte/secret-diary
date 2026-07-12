@@ -17,9 +17,28 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 class MockSecureStorage extends Mock implements FlutterSecureStorage {}
 
+/// 플랫폼 채널 오류(플러그인 부재 등)를 흉내내는 인식기.
+class ThrowingRecognizer extends FakeRecognizer {
+  @override
+  Future<bool> isModelDownloaded(String languageTag) async =>
+      throw Exception('MissingPluginException');
+
+  @override
+  Future<void> downloadModel(String languageTag) async =>
+      throw Exception('MissingPluginException');
+
+  @override
+  Future<List<String>> downloadedModels() async =>
+      throw Exception('MissingPluginException');
+}
+
 /// 위젯 테스트용 공통 환경: 인메모리 DB/설정/가짜 인식기/모의 Gemini.
 class TestEnv {
-  TestEnv({String? apiKey, MockClient? geminiHttp}) {
+  TestEnv({
+    String? apiKey,
+    MockClient? geminiHttp,
+    FakeRecognizer? recognizer,
+  }) {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
 
@@ -39,7 +58,7 @@ class TestEnv {
       prefs: SharedPreferencesAsync(),
     );
 
-    recognizer = FakeRecognizer(result: '가짜 인식 결과');
+    this.recognizer = recognizer ?? FakeRecognizer(result: '가짜 인식 결과');
 
     gemini = GeminiClient(
       httpClient: geminiHttp ??

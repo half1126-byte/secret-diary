@@ -13,7 +13,15 @@ Future<bool> ensureLanguageModel(
   HandwritingRecognizer recognizer,
   String languageTag,
 ) async {
-  if (await recognizer.isModelDownloaded(languageTag)) return true;
+  // 플랫폼 채널 오류(플러그인 부재 등)는 '미설치'로 간주하고
+  // 다운로드 시트에서 실패/재시도 UX로 이어지게 한다.
+  bool downloaded;
+  try {
+    downloaded = await recognizer.isModelDownloaded(languageTag);
+  } catch (_) {
+    downloaded = false;
+  }
+  if (downloaded) return true;
   if (!context.mounted) return false;
 
   final ok = await showModalBottomSheet<bool>(

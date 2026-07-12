@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:secret_diary/data/db/app_database.dart';
@@ -88,6 +89,27 @@ void main() {
     final snippets = await repo.recentEntrySnippets(limit: 5);
     expect(snippets, hasLength(5));
     expect(snippets.first.text, '일기 6');
+  });
+
+  test('손상된 잉크 JSON이 있어도 일기를 열 수 있다', () async {
+    final entry = await repo.createEntry(languageTag: 'ko');
+    // 과거 버그 등으로 손상된 행을 직접 삽입.
+    await db.into(db.messages).insert(MessagesCompanion.insert(
+          id: 'corrupt-1',
+          entryId: entry.id,
+          role: 'user',
+          body: '손상된 메시지',
+          strokesJson: const Value('{"s": [[[NaN'),
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        ));
+
+    final messages = await repo.getMessages(entry.id);
+    expect(messages, hasLength(1));
+    expect(messages.single.text, '손상된 메시지');
+    expect(messages.single.strokes, isNull); // 잉크만 포기, 일기는 살린다.
+
+    final streamed = await repo.watchMessages(entry.id).first;
+    expect(streamed, hasLength(1));
   });
 
   test('watchMessages가 새 메시지를 스트림으로 반영한다', () async {

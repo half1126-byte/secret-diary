@@ -17,6 +17,19 @@ class MlKitRecognizer implements HandwritingRecognizer {
   mlkit.DigitalInkRecognizer? _recognizer;
   String? _recognizerLanguage;
 
+  /// 인식 호출을 직렬화하는 큐.
+  ///
+  /// 언어 전환 시 이전 인식기를 close()하는데, 진행 중인 recognize가
+  /// 그 인스턴스를 쓰고 있으면 use-after-close 크래시가 난다.
+  /// 큐로 순서를 보장해 close가 항상 사용이 끝난 뒤에 일어나게 한다.
+  Future<void> _queue = Future.value();
+
+  Future<T> _serialized<T>(Future<T> Function() action) {
+    final result = _queue.then((_) => action());
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
   mlkit.DigitalInkRecognizer _recognizerFor(String languageTag) {
     if (_recognizer == null || _recognizerLanguage != languageTag) {
       _recognizer?.close();
@@ -32,8 +45,24 @@ class MlKitRecognizer implements HandwritingRecognizer {
     required String languageTag,
     String preContext = '',
     Size? writingArea,
+  }) {
+    if (strokes.isEmpty) {
+      return Future.value(const RecognitionResult(text: ''));
+    }
+    return _serialized(() => _recognize(
+          strokes,
+          languageTag: languageTag,
+          preContext: preContext,
+          writingArea: writingArea,
+        ));
+  }
+
+  Future<RecognitionResult> _recognize(
+    List<DiaryStroke> strokes, {
+    required String languageTag,
+    String preContext = '',
+    Size? writingArea,
   }) async {
-    if (strokes.isEmpty) return const RecognitionResult(text: '');
 
     final ink = mlkit.Ink()
       ..strokes = [
@@ -89,7 +118,11 @@ class MlKitRecognizer implements HandwritingRecognizer {
 
   @override
   void dispose() {
-    _recognizer?.close();
-    _recognizer = null;
+    // 진행 중인 인식이 끝난 뒤에 닫는다.
+    _serialized(() async {
+      await _recognizer?.close();
+      _recognizer = null;
+      _recognizerLanguage = null;
+    });
   }
 }

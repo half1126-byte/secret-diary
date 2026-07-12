@@ -29,6 +29,12 @@ class DiaryRepository {
     return row == null ? null : _toEntry(row);
   }
 
+  /// 가장 최근에 수정된 항목 (오늘 일기 이어쓰기 판단용).
+  Future<DiaryEntry?> latestEntry() async {
+    final row = await _db.latestEntry();
+    return row == null ? null : _toEntry(row);
+  }
+
   Stream<List<ChatMessage>> watchMessages(String entryId) =>
       _db.watchMessages(entryId).map((rows) => rows.map(_toMessage).toList());
 
@@ -131,8 +137,16 @@ class DiaryRepository {
         role: row.role == 'ai' ? MessageRole.ai : MessageRole.user,
         text: row.body,
         createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
-        strokes: row.strokesJson == null
-            ? null
-            : StrokeCodec.decode(row.strokesJson!),
+        strokes: row.strokesJson == null ? null : _tryDecode(row.strokesJson!),
       );
+
+  /// 손상된 잉크 JSON 한 건 때문에 일기 전체를 못 여는 일이 없도록
+  /// 디코딩 실패는 잉크 없음으로 처리한다.
+  static List<DiaryStroke>? _tryDecode(String json) {
+    try {
+      return StrokeCodec.decode(json);
+    } catch (_) {
+      return null;
+    }
+  }
 }

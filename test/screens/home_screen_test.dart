@@ -49,4 +49,28 @@ void main() {
     expect(find.text('바람이 좋았던 하루'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
+
+  testWidgets('인식기가 고장나도 오늘 일기 쓰기가 열린다', (tester) async {
+    final env = TestEnv(recognizer: ThrowingRecognizer());
+    addTearDown(env.dispose);
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: env.overrides,
+      child: const MaterialApp(home: HomeScreen()),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.text('오늘 일기 쓰기'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // 다운로드 실패 시트가 뜨면 '나중에'로 넘어간다.
+    expect(find.text('모델을 내려받지 못했어요'), findsOneWidget);
+    await tester.tap(find.text('나중에'));
+    await tester.pumpAndSettle();
+
+    // 모델이 없어도 쓰기 화면으로 진입해야 한다.
+    expect(find.text('여기에 마음껏 적어보세요'), findsOneWidget);
+    await TestEnv.unmount(tester);
+  });
 }

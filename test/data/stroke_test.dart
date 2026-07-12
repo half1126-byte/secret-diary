@@ -32,6 +32,26 @@ void main() {
       expect(StrokeCodec.decode(StrokeCodec.encode([])), isEmpty);
     });
 
+    test('NaN/Infinity 좌표가 있어도 항상 디코딩 가능한 JSON을 만든다', () {
+      final strokes = [
+        const DiaryStroke(points: [
+          DiaryPoint(x: double.nan, y: 10, pressure: 0.5, t: 0),
+          DiaryPoint(x: 5, y: double.infinity, pressure: 0.5, t: 1),
+          DiaryPoint(x: 5, y: 6, pressure: double.nan, t: 2),
+          DiaryPoint(x: 7, y: 8, pressure: 0.9, t: 3),
+        ]),
+      ];
+
+      // encode가 invalid JSON을 만들지 않고, decode가 성공해야 한다.
+      final decoded = StrokeCodec.decode(StrokeCodec.encode(strokes));
+
+      expect(decoded, hasLength(1));
+      // 비유한 좌표(x/y) 점 2개는 버려지고, 필압만 이상한 점은 0.5로 보정.
+      expect(decoded.single.points, hasLength(2));
+      expect(decoded.single.points[0].pressure, 0.5);
+      expect(decoded.single.points[1].x, 7);
+    });
+
     test('boundingBox가 전체 획을 감싼다', () {
       final strokes = [
         const DiaryStroke(points: [

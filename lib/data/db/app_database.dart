@@ -47,6 +47,14 @@ class AppDatabase extends _$AppDatabase {
   Future<Entry?> getEntry(String id) =>
       (select(entries)..where((t) => t.id.equals(id))).getSingleOrNull();
 
+  /// 가장 최근에 수정된 항목.
+  Future<Entry?> latestEntry() {
+    return (select(entries)
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   Stream<List<Message>> watchMessages(String entryId) {
     return (select(messages)
           ..where((t) => t.entryId.equals(entryId))

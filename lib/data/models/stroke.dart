@@ -38,11 +38,19 @@ class DiaryStroke {
 abstract final class StrokeCodec {
   static String encode(List<DiaryStroke> strokes) {
     double round1(double v) => (v * 10).roundToDouble() / 10;
+    // NaN/Infinity가 섞이면 jsonEncode가 invalid JSON을 만들어
+    // 이후 decode가 영영 실패한다 — 비유한 좌표 점은 버린다.
     final s = [
       for (final stroke in strokes)
         [
           for (final p in stroke.points)
-            [round1(p.x), round1(p.y), round1(p.pressure), p.t],
+            if (p.x.isFinite && p.y.isFinite)
+              [
+                round1(p.x),
+                round1(p.y),
+                p.pressure.isFinite ? round1(p.pressure.clamp(0.0, 1.0)) : 0.5,
+                p.t,
+              ],
         ],
     ];
     return jsonEncode({'s': s});
