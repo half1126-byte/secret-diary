@@ -83,12 +83,23 @@ class GeminiClient {
       switch (response.statusCode) {
         case 200:
           // 서버 charset 헤더와 무관하게 UTF-8로 해석한다.
-          return _extractText(utf8.decode(response.bodyBytes));
-        case 400:
+          return _extractText(
+              utf8.decode(response.bodyBytes, allowMalformed: true));
         case 401:
         case 403:
           throw GeminiException(
               GeminiErrorType.invalidApiKey, _errorMessage(response.body));
+        case 400:
+          // 400은 대개 요청 자체의 문제다. 키 문제로 명시된 경우만 키 오류로.
+          final message = _errorMessage(response.body);
+          if (_errorStatus(response.body) == 'API_KEY_INVALID' ||
+              message.contains('API key not valid')) {
+            throw GeminiException(GeminiErrorType.invalidApiKey, message);
+          }
+          throw GeminiException(GeminiErrorType.other, '잘못된 요청: $message');
+        case 404:
+          throw GeminiException(
+              GeminiErrorType.other, '모델($model)을 찾을 수 없어요 — 설정에서 모델을 확인해 주세요.');
         case 429:
         case 503:
           if (attempt < maxRetries) {
@@ -167,6 +178,25 @@ class GeminiClient {
           body;
     } catch (_) {
       return body;
+    }
+  }
+
+  /// Google API 오류 응답의 `error.status` (예: 'API_KEY_INVALID', 'INVALID_ARGUMENT').
+  static String? _errorStatus(String body) {
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final error = json['error'] as Map<String, dynamic>?;
+      final status = error?['status'] as String?;
+      if (status != null) return status;
+      // 상세 reason에 담겨 오는 경우도 있다.
+      final details = error?['details'] as List<dynamic>?;
+      for (final d in details ?? const []) {
+        final reason = (d as Map<String, dynamic>)['reason'] as String?;
+        if (reason != null) return reason;
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 

@@ -76,7 +76,8 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
     if (!mounted) return;
     final ok =
         await ensureLanguageModel(context, ref.read(recognizerProvider), tag);
-    if (!ok) return;
+    // 모델 다운로드 시트가 떠 있는 동안 화면을 벗어났을 수 있다.
+    if (!ok || !mounted) return;
     setState(() => _languageTag = tag);
     _writing.languageTag = tag;
     await ref.read(settingsRepositoryProvider).setLanguageTag(tag);
@@ -201,7 +202,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
       listenable: _session,
       builder: (context, _) {
         return StreamBuilder<List<ChatMessage>>(
-          stream: _session.watchMessages(),
+          stream: _session.messageStream,
           builder: (context, snapshot) {
             final messages = snapshot.data ?? const <ChatMessage>[];
             if (messages.isEmpty && _session.status == AiStatus.idle) {

@@ -34,8 +34,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final settings = ref.read(settingsRepositoryProvider);
     final key = await settings.getGeminiApiKey();
     final model = await settings.getModel();
-    final downloaded =
-        await ref.read(recognizerProvider).downloadedModels();
+    // 인식기 플랫폼 오류가 키/모델 상태 표시까지 막지 않도록 분리.
+    List<String> downloaded;
+    try {
+      downloaded = await ref.read(recognizerProvider).downloadedModels();
+    } catch (_) {
+      downloaded = const [];
+    }
     if (!mounted) return;
     setState(() {
       _keySaved = key != null && key.isNotEmpty;
@@ -234,9 +239,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         icon: const Icon(Icons.delete_outline,
                             color: Palette.inkFaded),
                         onPressed: () async {
-                          await ref
-                              .read(recognizerProvider)
-                              .deleteModel(tag);
+                          try {
+                            await ref.read(recognizerProvider).deleteModel(tag);
+                          } catch (_) {
+                            _showSnack('모델을 지우지 못했어요.');
+                          }
                           _load();
                         },
                       ),
@@ -248,8 +255,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       final tag = await showLanguagePicker(context,
                           current: ref.read(languageTagProvider));
                       if (tag == null || !context.mounted) return;
-                      await ensureLanguageModel(
-                          context, ref.read(recognizerProvider), tag);
+                      try {
+                        await ensureLanguageModel(
+                            context, ref.read(recognizerProvider), tag);
+                      } catch (_) {
+                        _showSnack('언어 모델을 준비하지 못했어요.');
+                      }
                       _load();
                     },
                   ),

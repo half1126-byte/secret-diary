@@ -123,13 +123,16 @@ class WritingController extends ChangeNotifier {
         preContext: _preContext(),
         writingArea: writingArea,
       );
-      if (generation != _generation || _textEditedManually) return;
+      if (_disposed || generation != _generation || _textEditedManually) {
+        return;
+      }
       _recognizedText = result.text;
     } catch (_) {
       // 인식 실패는 치명적이지 않다 — 기존 텍스트 유지.
-      if (generation != _generation) return;
+      if (_disposed || generation != _generation) return;
     } finally {
-      if (generation == _generation) {
+      // 인식 대기 중 화면이 dispose됐으면 notify하지 않는다.
+      if (!_disposed && generation == _generation) {
         _recognizing = false;
         notifyListeners();
       }
@@ -143,8 +146,11 @@ class WritingController extends ChangeNotifier {
         : context;
   }
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     _debounce?.cancel();
     super.dispose();
   }

@@ -98,4 +98,28 @@ void main() {
     expect(find.text('오늘 하루도 수고 많았어요.'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
+
+  testWidgets('AI 답장 대기 중 화면을 나가도 예외가 없다', (tester) async {
+    final env = TestEnv(
+      apiKey: 'test-key',
+      geminiHttp: MockClient((request) async {
+        // 답장이 늦게 도착하는 상황.
+        await Future<void>.delayed(const Duration(seconds: 3));
+        return http.Response('{}', 500);
+      }),
+    );
+    addTearDown(env.dispose);
+    final repo = DiaryRepository(env.db);
+    final entry = await repo.createEntry(languageTag: 'ko');
+
+    await pumpWriting(tester, env, entryId: entry.id);
+    await writeAndSend(tester);
+
+    // 답장이 오기 전에 화면을 통째로 내려 dispose시킨다.
+    await TestEnv.unmount(tester);
+    // 늦게 도착한 응답이 disposed notifyListeners를 부르면 여기서 터진다.
+    await tester.pump(const Duration(seconds: 4));
+
+    expect(tester.takeException(), isNull);
+  });
 }

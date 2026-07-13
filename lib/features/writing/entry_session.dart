@@ -35,7 +35,10 @@ class EntrySession extends ChangeNotifier {
   GeminiErrorType? _lastError;
   GeminiErrorType? get lastError => _lastError;
 
-  Stream<List<ChatMessage>> watchMessages() =>
+  bool _disposed = false;
+
+  /// 매번 새 drift 스트림을 만들지 않도록 캐시해서 재사용한다.
+  late final Stream<List<ChatMessage>> messageStream =
       _repository.watchMessages(entryId);
 
   /// 손글씨 스냅샷을 사용자 메시지로 저장하고 AI 답장을 요청한다.
@@ -45,6 +48,11 @@ class EntrySession extends ChangeNotifier {
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty && (strokes == null || strokes.isEmpty)) return;
+
+    // 저장 전에 미리 thinking으로 전환해 빈 스레드 화면이 깜빡이지 않게.
+    _status = AiStatus.thinking;
+    _lastError = null;
+    _notify();
 
     await _repository.appendMessage(
       entryId: entryId,
@@ -59,7 +67,7 @@ class EntrySession extends ChangeNotifier {
   Future<void> requestAiReply() async {
     _status = AiStatus.thinking;
     _lastError = null;
-    notifyListeners();
+    _notify();
 
     try {
       final apiKey = await _settings.getGeminiApiKey();
@@ -71,10 +79,15 @@ class EntrySession extends ChangeNotifier {
       // 현재 항목을 제외한 최근 일기들을 기억 블록으로.
       final snippets = await _repository.recentEntrySnippets(limit: 6);
       final messages = await _repository.getMessages(entryId);
-      final currentFirst =
-          messages.isEmpty ? null : messages.first.text;
+      if (messages.isEmpty) {
+        // 보낼 대화가 없으면 빈 요청으로 400을 받지 않도록 조용히 종료.
+        _status = AiStatus.idle;
+        _notify();
+        return;
+      }
+      final currentFirst = messages.first.text;
       final memory = snippets
-          .where((s) => currentFirst == null || !s.text.startsWith(_head(currentFirst)))
+          .where((s) => !s.text.startsWith(_head(currentFirst)))
           .take(5)
           .toList();
 
@@ -98,7 +111,18 @@ class EntrySession extends ChangeNotifier {
       _status = AiStatus.failed;
       _lastError = GeminiErrorType.other;
     }
-    notifyListeners();
+    _notify();
+  }
+
+  /// 답장 대기 중 화면을 벗어나 dispose된 뒤에도 안전하게.
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   static String _head(String text) =>

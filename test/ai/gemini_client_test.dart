@@ -112,6 +112,70 @@ void main() {
     );
   });
 
+  test('404(모델 없음)는 키 오류가 아니라 other', () async {
+    final client = GeminiClient(
+      httpClient: MockClient(
+        (_) async => http.Response(
+            jsonEncode({
+              'error': {'message': 'model not found', 'status': 'NOT_FOUND'},
+            }),
+            404),
+      ),
+    );
+
+    expect(
+      () => client.generateReply(apiKey: 'k', model: 'no-model', prompt: _prompt),
+      throwsA(isA<GeminiException>()
+          .having((e) => e.type, 'type', GeminiErrorType.other)
+          .having((e) => e.message, 'message', contains('no-model'))),
+    );
+  });
+
+  test('일반 400(요청 오류)은 키 오류가 아니라 other', () async {
+    final client = GeminiClient(
+      httpClient: MockClient(
+        (_) async => http.Response(
+            jsonEncode({
+              'error': {
+                'message': 'Invalid JSON payload',
+                'status': 'INVALID_ARGUMENT',
+              },
+            }),
+            400),
+      ),
+    );
+
+    expect(
+      () => client.generateReply(apiKey: 'k', model: 'm', prompt: _prompt),
+      throwsA(isA<GeminiException>()
+          .having((e) => e.type, 'type', GeminiErrorType.other)),
+    );
+  });
+
+  test('400이라도 API_KEY_INVALID면 invalidApiKey', () async {
+    final client = GeminiClient(
+      httpClient: MockClient(
+        (_) async => http.Response(
+            jsonEncode({
+              'error': {
+                'message': 'API key not valid. Please pass a valid API key.',
+                'status': 'INVALID_ARGUMENT',
+                'details': [
+                  {'reason': 'API_KEY_INVALID'},
+                ],
+              },
+            }),
+            400),
+      ),
+    );
+
+    expect(
+      () => client.generateReply(apiKey: 'bad', model: 'm', prompt: _prompt),
+      throwsA(isA<GeminiException>()
+          .having((e) => e.type, 'type', GeminiErrorType.invalidApiKey)),
+    );
+  });
+
   test('깨진 JSON이면 other 예외', () async {
     final client = GeminiClient(
       httpClient: MockClient((_) async => http.Response('not json', 200)),

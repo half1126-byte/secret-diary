@@ -25,11 +25,8 @@ class BuiltPrompt {
 /// 문자 예산(~4자/토큰 가정, 입력 약 6,000자) 안에서
 /// [기억 블록: 최근 일기 스니펫] + [현재 대화 최근 메시지]를 담는다.
 abstract final class PromptBuilder {
-  /// 전체 입력 문자 예산.
+  /// 전체 입력 문자 예산 — 무료 등급 보호가 목적이라 하드 캡이다.
   static const charBudget = 6000;
-
-  /// 항상 포함할 현재 대화의 최근 메시지 수.
-  static const recentMessageCount = 12;
 
   static const systemInstruction = '''
 You are the warm, gentle companion living inside a person's secret handwritten diary.
@@ -61,12 +58,12 @@ Rules:
     }
 
     // 2) 현재 대화: 최근 메시지부터 예산이 허락하는 만큼.
+    //    가장 최근 메시지 하나는 예산을 넘더라도 반드시 포함한다.
     final included = <ChatMessage>[];
     for (var i = messages.length - 1; i >= 0; i--) {
       final m = messages[i];
       final cost = m.text.length + 8;
-      if (included.length >= recentMessageCount && remaining - cost < 0) break;
-      if (remaining - cost < 0 && included.isNotEmpty) break;
+      if (included.isNotEmpty && remaining - cost < 0) break;
       included.insert(0, m);
       remaining -= cost;
     }

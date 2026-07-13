@@ -56,6 +56,15 @@ void main() {
     expect(prompt.turns.map((t) => t.text), isNot(contains(messages.first.text)));
   });
 
+  test('예산을 넘는 메시지 하나만 있어도 반드시 포함한다', () {
+    final huge = msg('x' * (PromptBuilder.charBudget * 2));
+
+    final prompt = PromptBuilder.build(snippets: [], messages: [huge]);
+
+    expect(prompt.turns, hasLength(1));
+    expect(prompt.turns.single.text, huge.text);
+  });
+
   test('기억 블록이 예산의 절반을 넘지 않는다', () {
     final snippets = [
       for (var i = 0; i < 30; i++)
