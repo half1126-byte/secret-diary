@@ -30,6 +30,60 @@ class WritingScreen extends ConsumerStatefulWidget {
   ConsumerState<WritingScreen> createState() => _WritingScreenState();
 }
 
+/// AI 답장을 진짜 필기처럼 그리는 위젯.
+///
+/// 문장마다 줄을 바꾸고, 줄마다 살짝 다른 기울기·들여쓰기를 줘서
+/// 활자 느낌 대신 여백에 끄적인 쪽지 느낌을 낸다.
+class _HandwrittenReply extends StatelessWidget {
+  const _HandwrittenReply({
+    required this.text,
+    required this.progress,
+    required this.style,
+  });
+
+  final String text;
+  final double progress;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = _WritingScreenState.splitNoteLines(text);
+    final totalChars =
+        lines.fold<int>(0, (sum, l) => sum + l.characters.length);
+    var remaining = (totalChars * progress).round();
+    final random = Random(text.hashCode);
+
+    final children = <Widget>[];
+    for (var i = 0; i < lines.length; i++) {
+      final chars = lines[i].characters;
+      final show = remaining.clamp(0, chars.length);
+      remaining -= chars.length;
+      final angle = (random.nextDouble() - 0.5) * 0.045; // ±1.3도
+      final indent = random.nextDouble() * 26;
+      if (show <= 0) break;
+      children.add(Padding(
+        padding: EdgeInsets.only(left: indent, bottom: 10),
+        child: Transform.rotate(
+          angle: angle,
+          alignment: Alignment.centerLeft,
+          child: Text(chars.take(show).toString(), style: style),
+        ),
+      ));
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
 class _WritingScreenState extends ConsumerState<WritingScreen>
     with TickerProviderStateMixin {
   late WritingController _writing;
@@ -265,33 +319,22 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
               IgnorePointer(
                 child: AnimatedBuilder(
                   animation: _revealController,
-                  builder: (context, _) {
-                    final chars = _replyReveal!.characters;
-                    final count =
-                        (chars.length * _revealController.value).round();
-                    return Center(
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(
-                          chars.take(count).toString(),
-                          textAlign: TextAlign.center,
-                          style: ScriptFonts.replyStyle(
-                            _languageTag,
-                            prefs.replyFont,
-                            base: TextStyle(
-                              fontSize: 22 *
-                                  prefs.replyScale *
-                                  ScriptFonts.scaleFor(_languageTag) /
-                                  1.2,
-                              color: Palette.sage,
-                              height: 1.9,
-                            ),
-                          ),
-                        ),
+                  builder: (context, _) => _HandwrittenReply(
+                    text: _replyReveal!,
+                    progress: _revealController.value,
+                    style: ScriptFonts.replyStyle(
+                      _languageTag,
+                      prefs.replyFont,
+                      base: TextStyle(
+                        fontSize: 23 *
+                            prefs.replyScale *
+                            ScriptFonts.scaleFor(_languageTag) /
+                            1.2,
+                        color: Palette.sage,
+                        height: 1.55,
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             // 답장을 기다리는 동안의 낮은 숨소리.
@@ -450,6 +493,28 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
         );
       },
     );
+  }
+
+  static const _sentenceBreak = r'(?<=[.!?…。])\s+';
+
+  /// 답장을 손글씨 쪽지처럼 짧은 줄들로 나눈다.
+  static List<String> splitNoteLines(String text) {
+    final segments = text
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    final lines = <String>[];
+    for (final segment in segments) {
+      if (segment.characters.length <= 30) {
+        lines.add(segment);
+        continue;
+      }
+      for (final part in segment.split(RegExp(_sentenceBreak))) {
+        if (part.trim().isNotEmpty) lines.add(part.trim());
+      }
+    }
+    return lines.isEmpty ? [text] : lines;
   }
 
   Future<void> _editRecognizedText() async {
