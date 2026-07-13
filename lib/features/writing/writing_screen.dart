@@ -5,9 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/navigation/page_turn_route.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/script_fonts.dart';
-import '../../core/widgets/paper_background.dart';
+import '../../core/widgets/notebook_page.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/diary_entry.dart';
 import '../../data/models/stroke.dart';
@@ -135,6 +136,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
       settings: ref.read(settingsRepositoryProvider),
       gemini: ref.read(geminiClientProvider),
       entryId: widget.entry.id,
+      kind: widget.entry.kind,
     );
   }
 
@@ -177,8 +179,28 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
     );
     if (!mounted) return;
 
+    // 메모는 조용히 담아두기만 한다.
+    if (widget.entry.kind == EntryKind.memo) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('메모에 담아뒀어요.'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
     if (_session.status == AiStatus.failed) {
       // 오류는 대화 화면의 카드(재시도/안내)로 보여준다.
+      setState(() {
+        _fadingStrokes = null;
+        _writingMode = false;
+      });
+      return;
+    }
+
+    // 아이디어 모드의 구조화된 답(목록/표)은 대화 화면에서 보여준다.
+    if (widget.entry.kind == EntryKind.idea) {
       setState(() {
         _fadingStrokes = null;
         _writingMode = false;
@@ -220,12 +242,16 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
   Widget build(BuildContext context) {
     final dateLabel =
         DateFormat('M월 d일 EEEE', 'ko').format(widget.entry.createdAt);
+    final kindSuffix = widget.entry.kind == EntryKind.diary
+        ? ''
+        : ' · ${widget.entry.kind.label}';
     final languageName =
         ScriptFonts.supportedLanguages[_languageTag] ?? _languageTag;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(dateLabel, style: Theme.of(context).textTheme.titleMedium),
+        title: Text('$dateLabel$kindSuffix',
+            style: Theme.of(context).textTheme.titleMedium),
         actions: [
           TextButton.icon(
             onPressed: _pickLanguage,
@@ -237,12 +263,12 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
             tooltip: '설정',
             icon: const Icon(Icons.more_horiz),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              PageTurnRoute(builder: (_) => const SettingsScreen()),
             ),
           ),
         ],
       ),
-      body: PaperBackground(
+      body: NotebookPage(
         showRuleLines: _writingMode,
         child: SafeArea(
           child: Column(
@@ -442,7 +468,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
               ),
               onRetry: _session.requestAiReply,
               onOpenSettings: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                PageTurnRoute(builder: (_) => const SettingsScreen()),
               ),
             );
           },

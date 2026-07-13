@@ -39,16 +39,23 @@ class GeminiClient {
   );
 
   /// 대화를 보내고 답장 텍스트를 받는다.
+  ///
+  /// [imagePngBase64]가 있으면 마지막 사용자 턴에 스케치 이미지를 붙인다
+  /// (아이디어 모드 — 그림을 보고 해석).
   Future<String> generateReply({
     required String apiKey,
     required String model,
     required BuiltPrompt prompt,
+    String? imagePngBase64,
   }) async {
     if (apiKey.trim().isEmpty) {
       throw const GeminiException(GeminiErrorType.noApiKey);
     }
 
     final uri = Uri.parse('$_base/models/$model:generateContent');
+    final turns = prompt.turns;
+    final lastUserIndex =
+        turns.lastIndexWhere((turn) => turn.role == 'user');
     final body = jsonEncode({
       'systemInstruction': {
         'parts': [
@@ -56,11 +63,18 @@ class GeminiClient {
         ],
       },
       'contents': [
-        for (final turn in prompt.turns)
+        for (var i = 0; i < turns.length; i++)
           {
-            'role': turn.role,
+            'role': turns[i].role,
             'parts': [
-              {'text': turn.text},
+              if (imagePngBase64 != null && i == lastUserIndex)
+                {
+                  'inline_data': {
+                    'mime_type': 'image/png',
+                    'data': imagePngBase64,
+                  },
+                },
+              {'text': turns[i].text},
             ],
           },
       ],

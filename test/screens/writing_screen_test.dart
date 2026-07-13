@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:secret_diary/data/models/diary_entry.dart';
 import 'package:secret_diary/data/repositories/diary_repository.dart';
 import 'package:secret_diary/features/writing/canvas/handwriting_canvas.dart';
 import 'package:secret_diary/features/writing/writing_screen.dart';
@@ -177,6 +178,23 @@ void main() {
     final messages = await repo.getMessages(entry.id);
     expect(messages, hasLength(1));
     expect(messages.single.text, '가짜 인식 결과');
+    await TestEnv.unmount(tester);
+  });
+
+  testWidgets('메모 모드는 AI 없이 조용히 저장만 된다', (tester) async {
+    final env = TestEnv(apiKey: 'test-key'); // 키가 있어도 메모는 AI를 부르지 않는다
+    addTearDown(env.dispose);
+    final repo = DiaryRepository(env.db);
+    final entry =
+        await repo.createEntry(languageTag: 'ko', kind: EntryKind.memo);
+
+    await pumpWriting(tester, env, entryId: entry.id);
+    await writeAndSend(tester);
+    await tester.pump(const Duration(seconds: 3));
+
+    final messages = await repo.getMessages(entry.id);
+    expect(messages, hasLength(1)); // 사용자 메모만, AI 답장 없음
+    expect(find.text('메모에 담아뒀어요.'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
 

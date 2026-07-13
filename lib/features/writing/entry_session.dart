@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/models/chat_message.dart';
+import '../../data/models/diary_entry.dart';
 import '../../data/models/stroke.dart';
 import '../../data/repositories/diary_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../services/ai/gemini_client.dart';
 import '../../services/ai/prompt_builder.dart';
+import '../../services/ai/sketch_encoder.dart';
 
 /// AI 답장 진행 상태.
 enum AiStatus { idle, thinking, failed }
@@ -20,6 +22,7 @@ class EntrySession extends ChangeNotifier {
     required SettingsRepository settings,
     required GeminiClient gemini,
     required this.entryId,
+    this.kind = EntryKind.diary,
   })  : _repository = repository, // ignore: prefer_initializing_formals
         _settings = settings, // ignore: prefer_initializing_formals
         _gemini = gemini; // ignore: prefer_initializing_formals
@@ -28,6 +31,15 @@ class EntrySession extends ChangeNotifier {
   final SettingsRepository _settings;
   final GeminiClient _gemini;
   final String entryId;
+
+  /// 항목 종류에 따라 AI 페르소나와 동작이 달라진다.
+  final EntryKind kind;
+
+  String get _persona => switch (kind) {
+        EntryKind.counsel => PromptBuilder.counselPersona,
+        EntryKind.idea => PromptBuilder.ideaPersona,
+        _ => '',
+      };
 
   AiStatus _status = AiStatus.idle;
   AiStatus get status => _status;
@@ -46,12 +58,25 @@ class EntrySession extends ChangeNotifier {
       _repository.watchMessages(entryId);
 
   /// 손글씨 스냅샷을 사용자 메시지로 저장하고 AI 답장을 요청한다.
+  ///
+  /// 메모 모드는 저장만 하고 AI를 부르지 않는다.
+  /// 아이디어 모드는 스케치 이미지를 함께 보낸다.
   Future<void> sendUserMessage({
     required String text,
     List<DiaryStroke>? strokes,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty && (strokes == null || strokes.isEmpty)) return;
+
+    if (kind == EntryKind.memo) {
+      await _repository.appendMessage(
+        entryId: entryId,
+        role: MessageRole.user,
+        text: trimmed.isEmpty ? '(손글씨 메모)' : trimmed,
+        strokes: strokes,
+      );
+      return;
+    }
 
     // 저장 전에 미리 thinking으로 전환해 빈 스레드 화면이 깜빡이지 않게.
     _status = AiStatus.thinking;
@@ -64,11 +89,20 @@ class EntrySession extends ChangeNotifier {
       text: trimmed.isEmpty ? '(손글씨)' : trimmed,
       strokes: strokes,
     );
-    await requestAiReply();
+
+    String? sketch;
+    if (kind == EntryKind.idea && strokes != null && strokes.isNotEmpty) {
+      try {
+        sketch = await strokesToPngBase64(strokes);
+      } catch (_) {
+        sketch = null; // 인코딩 실패 시 텍스트만으로 진행.
+      }
+    }
+    await requestAiReply(imagePngBase64: sketch);
   }
 
   /// 마지막 사용자 메시지에 대한 AI 답장을 (재)요청한다.
-  Future<void> requestAiReply() async {
+  Future<void> requestAiReply({String? imagePngBase64}) async {
     _status = AiStatus.thinking;
     _lastError = null;
     _lastAiReply = null;
@@ -96,11 +130,16 @@ class EntrySession extends ChangeNotifier {
           .take(5)
           .toList();
 
-      final prompt = PromptBuilder.build(snippets: memory, messages: messages);
+      final prompt = PromptBuilder.build(
+        snippets: memory,
+        messages: messages,
+        persona: _persona,
+      );
       final reply = await _gemini.generateReply(
         apiKey: apiKey,
         model: model,
         prompt: prompt,
+        imagePngBase64: imagePngBase64,
       );
 
       await _repository.appendMessage(

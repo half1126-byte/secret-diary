@@ -31,9 +31,24 @@ class DiaryRepository {
   }
 
   /// 가장 최근에 수정된 항목 (오늘 일기 이어쓰기 판단용).
-  Future<DiaryEntry?> latestEntry() async {
-    final row = await _db.latestEntry();
+  Future<DiaryEntry?> latestEntry({EntryKind? kind}) async {
+    final row = await _db.latestEntry(kind: kind?.dbValue);
     return row == null ? null : _toEntry(row);
+  }
+
+  /// 해당 월에 항목이 있는 날 → 그날의 항목들.
+  Future<Map<int, List<DiaryEntry>>> entriesByDayInMonth(
+      DateTime month) async {
+    final from = DateTime(month.year, month.month, 1);
+    final to = DateTime(month.year, month.month + 1, 1);
+    final rows = await _db.entriesInRange(
+        from.millisecondsSinceEpoch, to.millisecondsSinceEpoch);
+    final map = <int, List<DiaryEntry>>{};
+    for (final row in rows) {
+      final entry = _toEntry(row);
+      map.putIfAbsent(entry.createdAt.day, () => []).add(entry);
+    }
+    return map;
   }
 
   Stream<List<ChatMessage>> watchMessages(String entryId) =>
@@ -42,20 +57,25 @@ class DiaryRepository {
   Future<List<ChatMessage>> getMessages(String entryId) async =>
       (await _db.getMessages(entryId)).map(_toMessage).toList();
 
-  /// 새 일기 항목을 만든다.
-  Future<DiaryEntry> createEntry({required String languageTag}) async {
+  /// 새 항목을 만든다.
+  Future<DiaryEntry> createEntry({
+    required String languageTag,
+    EntryKind kind = EntryKind.diary,
+  }) async {
     final now = DateTime.now();
     final entry = DiaryEntry(
       id: _uuid.v4(),
       createdAt: now,
       updatedAt: now,
       languageTag: languageTag,
+      kind: kind,
     );
     await _db.into(_db.entries).insert(EntriesCompanion.insert(
           id: entry.id,
           createdAt: now.millisecondsSinceEpoch,
           updatedAt: now.millisecondsSinceEpoch,
           languageTag: languageTag,
+          kind: Value(kind.dbValue),
         ));
     return entry;
   }
@@ -132,6 +152,7 @@ class DiaryRepository {
         createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
         updatedAt: DateTime.fromMillisecondsSinceEpoch(row.updatedAt),
         languageTag: row.languageTag,
+        kind: EntryKind.fromDb(row.kind),
         title: row.title,
         mood: row.mood,
       );

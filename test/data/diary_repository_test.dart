@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:secret_diary/data/db/app_database.dart';
 import 'package:secret_diary/data/models/chat_message.dart';
+import 'package:secret_diary/data/models/diary_entry.dart';
 import 'package:secret_diary/data/models/stroke.dart';
 import 'package:secret_diary/data/repositories/diary_repository.dart';
 
@@ -123,6 +124,33 @@ void main() {
 
     final streamed = await repo.watchMessages(entry.id).first;
     expect(streamed, hasLength(1));
+  });
+
+  test('항목 종류가 저장·복원되고 최근 일기 조회가 메모를 무시한다', () async {
+    final diary = await repo.createEntry(languageTag: 'ko');
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    await repo.createEntry(languageTag: 'ko', kind: EntryKind.memo);
+
+    final latestDiary = await repo.latestEntry(kind: EntryKind.diary);
+    expect(latestDiary!.id, diary.id);
+    expect(latestDiary.kind, EntryKind.diary);
+
+    final all = await repo.watchEntries().first;
+    expect(all.map((e) => e.kind).toSet(),
+        {EntryKind.diary, EntryKind.memo});
+  });
+
+  test('entriesByDayInMonth가 이번 달 기록을 날짜별로 묶는다', () async {
+    await repo.createEntry(languageTag: 'ko');
+    await repo.createEntry(languageTag: 'ko', kind: EntryKind.idea);
+
+    final now = DateTime.now();
+    final byDay = await repo.entriesByDayInMonth(now);
+    expect(byDay[now.day], hasLength(2));
+
+    final nextMonth = await repo
+        .entriesByDayInMonth(DateTime(now.year, now.month + 1));
+    expect(nextMonth, isEmpty);
   });
 
   test('watchMessages가 새 메시지를 스트림으로 반영한다', () async {

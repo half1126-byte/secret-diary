@@ -33,13 +33,30 @@ class EntryCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      dateLabel,
-                      style: ScriptFonts.styleFor(
-                        'ko',
-                        base: const TextStyle(
-                            fontSize: 22, color: Palette.terracotta),
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          dateLabel,
+                          style: ScriptFonts.styleFor(
+                            'ko',
+                            base: const TextStyle(
+                                fontSize: 22, color: Palette.terracotta),
+                          ),
+                        ),
+                        if (entry.kind != EntryKind.diary) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 1),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Palette.ruleLine),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(entry.kind.label,
+                                style: theme.textTheme.bodySmall),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Text(

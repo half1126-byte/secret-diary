@@ -68,6 +68,16 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('diary'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -76,6 +86,7 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
     languageTag,
     title,
     mood,
+    kind,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -133,6 +144,12 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
         mood.isAcceptableOrUnknown(data['mood']!, _moodMeta),
       );
     }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
     return context;
   }
 
@@ -166,6 +183,10 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
         DriftSqlType.string,
         data['${effectivePrefix}mood'],
       ),
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
     );
   }
 
@@ -182,6 +203,9 @@ class Entry extends DataClass implements Insertable<Entry> {
   final String languageTag;
   final String? title;
   final String? mood;
+
+  /// 항목 종류: 'diary' | 'memo' | 'counsel' | 'idea'.
+  final String kind;
   const Entry({
     required this.id,
     required this.createdAt,
@@ -189,6 +213,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     required this.languageTag,
     this.title,
     this.mood,
+    required this.kind,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -203,6 +228,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     if (!nullToAbsent || mood != null) {
       map['mood'] = Variable<String>(mood);
     }
+    map['kind'] = Variable<String>(kind);
     return map;
   }
 
@@ -216,6 +242,7 @@ class Entry extends DataClass implements Insertable<Entry> {
           ? const Value.absent()
           : Value(title),
       mood: mood == null && nullToAbsent ? const Value.absent() : Value(mood),
+      kind: Value(kind),
     );
   }
 
@@ -231,6 +258,7 @@ class Entry extends DataClass implements Insertable<Entry> {
       languageTag: serializer.fromJson<String>(json['languageTag']),
       title: serializer.fromJson<String?>(json['title']),
       mood: serializer.fromJson<String?>(json['mood']),
+      kind: serializer.fromJson<String>(json['kind']),
     );
   }
   @override
@@ -243,6 +271,7 @@ class Entry extends DataClass implements Insertable<Entry> {
       'languageTag': serializer.toJson<String>(languageTag),
       'title': serializer.toJson<String?>(title),
       'mood': serializer.toJson<String?>(mood),
+      'kind': serializer.toJson<String>(kind),
     };
   }
 
@@ -253,6 +282,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     String? languageTag,
     Value<String?> title = const Value.absent(),
     Value<String?> mood = const Value.absent(),
+    String? kind,
   }) => Entry(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -260,6 +290,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     languageTag: languageTag ?? this.languageTag,
     title: title.present ? title.value : this.title,
     mood: mood.present ? mood.value : this.mood,
+    kind: kind ?? this.kind,
   );
   Entry copyWithCompanion(EntriesCompanion data) {
     return Entry(
@@ -271,6 +302,7 @@ class Entry extends DataClass implements Insertable<Entry> {
           : this.languageTag,
       title: data.title.present ? data.title.value : this.title,
       mood: data.mood.present ? data.mood.value : this.mood,
+      kind: data.kind.present ? data.kind.value : this.kind,
     );
   }
 
@@ -282,14 +314,15 @@ class Entry extends DataClass implements Insertable<Entry> {
           ..write('updatedAt: $updatedAt, ')
           ..write('languageTag: $languageTag, ')
           ..write('title: $title, ')
-          ..write('mood: $mood')
+          ..write('mood: $mood, ')
+          ..write('kind: $kind')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, createdAt, updatedAt, languageTag, title, mood);
+      Object.hash(id, createdAt, updatedAt, languageTag, title, mood, kind);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -299,7 +332,8 @@ class Entry extends DataClass implements Insertable<Entry> {
           other.updatedAt == this.updatedAt &&
           other.languageTag == this.languageTag &&
           other.title == this.title &&
-          other.mood == this.mood);
+          other.mood == this.mood &&
+          other.kind == this.kind);
 }
 
 class EntriesCompanion extends UpdateCompanion<Entry> {
@@ -309,6 +343,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
   final Value<String> languageTag;
   final Value<String?> title;
   final Value<String?> mood;
+  final Value<String> kind;
   final Value<int> rowid;
   const EntriesCompanion({
     this.id = const Value.absent(),
@@ -317,6 +352,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     this.languageTag = const Value.absent(),
     this.title = const Value.absent(),
     this.mood = const Value.absent(),
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   EntriesCompanion.insert({
@@ -326,6 +362,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     required String languageTag,
     this.title = const Value.absent(),
     this.mood = const Value.absent(),
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -338,6 +375,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     Expression<String>? languageTag,
     Expression<String>? title,
     Expression<String>? mood,
+    Expression<String>? kind,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -347,6 +385,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
       if (languageTag != null) 'language_tag': languageTag,
       if (title != null) 'title': title,
       if (mood != null) 'mood': mood,
+      if (kind != null) 'kind': kind,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -358,6 +397,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     Value<String>? languageTag,
     Value<String?>? title,
     Value<String?>? mood,
+    Value<String>? kind,
     Value<int>? rowid,
   }) {
     return EntriesCompanion(
@@ -367,6 +407,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
       languageTag: languageTag ?? this.languageTag,
       title: title ?? this.title,
       mood: mood ?? this.mood,
+      kind: kind ?? this.kind,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -392,6 +433,9 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     if (mood.present) {
       map['mood'] = Variable<String>(mood.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -407,6 +451,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
           ..write('languageTag: $languageTag, ')
           ..write('title: $title, ')
           ..write('mood: $mood, ')
+          ..write('kind: $kind, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -844,6 +889,7 @@ typedef $$EntriesTableCreateCompanionBuilder =
       required String languageTag,
       Value<String?> title,
       Value<String?> mood,
+      Value<String> kind,
       Value<int> rowid,
     });
 typedef $$EntriesTableUpdateCompanionBuilder =
@@ -854,6 +900,7 @@ typedef $$EntriesTableUpdateCompanionBuilder =
       Value<String> languageTag,
       Value<String?> title,
       Value<String?> mood,
+      Value<String> kind,
       Value<int> rowid,
     });
 
@@ -893,6 +940,11 @@ class $$EntriesTableFilterComposer
 
   ColumnFilters<String> get mood => $composableBuilder(
     column: $table.mood,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -935,6 +987,11 @@ class $$EntriesTableOrderingComposer
     column: $table.mood,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$EntriesTableAnnotationComposer
@@ -965,6 +1022,9 @@ class $$EntriesTableAnnotationComposer
 
   GeneratedColumn<String> get mood =>
       $composableBuilder(column: $table.mood, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
 }
 
 class $$EntriesTableTableManager
@@ -1001,6 +1061,7 @@ class $$EntriesTableTableManager
                 Value<String> languageTag = const Value.absent(),
                 Value<String?> title = const Value.absent(),
                 Value<String?> mood = const Value.absent(),
+                Value<String> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EntriesCompanion(
                 id: id,
@@ -1009,6 +1070,7 @@ class $$EntriesTableTableManager
                 languageTag: languageTag,
                 title: title,
                 mood: mood,
+                kind: kind,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1019,6 +1081,7 @@ class $$EntriesTableTableManager
                 required String languageTag,
                 Value<String?> title = const Value.absent(),
                 Value<String?> mood = const Value.absent(),
+                Value<String> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EntriesCompanion.insert(
                 id: id,
@@ -1027,6 +1090,7 @@ class $$EntriesTableTableManager
                 languageTag: languageTag,
                 title: title,
                 mood: mood,
+                kind: kind,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
