@@ -30,16 +30,24 @@ jobs:
       - name: 테스트
         run: flutter test
 
-      - name: APK 빌드 (Gemini 키는 저장소 Secrets에서 주입)
+      - name: Re:Me APK 빌드 (Gemini 키는 저장소 Secrets에서 주입)
         run: >
-          flutter build apk --release
+          flutter build apk --release --flavor reme
+          --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+      - name: 팩폭상담소 APK 빌드
+        run: >
+          flutter build apk --release --flavor coach
+          --dart-define=APP_MODE=coach
           --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
       - name: APK 업로드
         uses: actions/upload-artifact@v4
         with:
           name: secret-diary-android
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            build/app/outputs/flutter-apk/app-reme-release.apk
+            build/app/outputs/flutter-apk/app-coach-release.apk
 
   ios:
     name: iOS IPA (서명 없음 — Sideloadly/AltStore로 설치)
@@ -85,7 +93,9 @@ jobs:
           merge-multiple: true
 
       - name: APK 이름 정리
-        run: mv app-release.apk secret-diary.apk
+        run: |
+          mv app-reme-release.apk secret-diary.apk
+          mv app-coach-release.apk coach.apk
 
       - name: Release 생성
         uses: softprops/action-gh-release@v2
@@ -94,8 +104,10 @@ jobs:
           name: "Re:Me 빌드 build-${{ github.run_number }}"
           body: |
             ✍️ Re:Me — 일기를 쓰면, 답장이 와요.
-            - `secret-diary.apk` — Android 폰에서 바로 설치
-            - `secret-diary.ipa` — iPhone은 PC의 Sideloadly로 설치
+            - `secret-diary.apk` — Re:Me (손글씨 일기), Android 폰에서 바로 설치
+            - `coach.apk` — 팩폭상담소 (직설 채팅 상담), Android 전용
+            - `secret-diary.ipa` — Re:Me iPhone용, PC의 Sideloadly로 설치
           files: |
             secret-diary.apk
+            coach.apk
             secret-diary.ipa

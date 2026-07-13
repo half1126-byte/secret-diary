@@ -23,6 +23,21 @@ android {
         versionName = flutter.versionName
     }
 
+    // 한 저장소에서 두 앱: Re:Me(일기)와 팩폭상담소(채팅 코치).
+    // 앱 ID가 달라 폰에 나란히 설치된다.
+    flavorDimensions += "app"
+    productFlavors {
+        create("reme") {
+            dimension = "app"
+            resValue("string", "app_name", "Re:Me")
+        }
+        create("coach") {
+            dimension = "app"
+            applicationId = "dev.secretdiary.coach"
+            resValue("string", "app_name", "팩폭상담소")
+        }
+    }
+
     buildTypes {
         release {
             // 개인 배포용 임시 서명 (Play 스토어 등록 시 릴리즈 키로 교체).
