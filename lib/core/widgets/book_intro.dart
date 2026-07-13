@@ -21,7 +21,7 @@ class _BookIntroState extends State<BookIntro>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2800),
+    duration: const Duration(milliseconds: 3600),
   )
     ..addStatusListener((status) {
       if (status == AnimationStatus.completed) widget.onFinished();
@@ -49,9 +49,12 @@ class _BookIntroState extends State<BookIntro>
       animation: _controller,
       builder: (context, _) {
         final t = _controller.value;
-        final fade = 1 - _seg(t, 0.86, 1.0, Curves.easeIn);
-        final settle = _seg(t, 0.0, 0.14, Curves.easeOutBack);
-        final coverOpen = _seg(t, 0.12, 0.42);
+        final fade = 1 - _seg(t, 0.88, 1.0, Curves.easeIn);
+        // 검은 화면 위 도입 문장 → 사라지면 책이 나타난다.
+        final prologue =
+            _seg(t, 0.02, 0.10) * (1 - _seg(t, 0.20, 0.28));
+        final settle = _seg(t, 0.22, 0.34, Curves.easeOutBack);
+        final coverOpen = _seg(t, 0.32, 0.55);
 
         final size = MediaQuery.sizeOf(context);
         final bookW = min(size.width * 0.66, 300.0);
@@ -72,11 +75,35 @@ class _BookIntroState extends State<BookIntro>
                   ),
                 ),
                 alignment: Alignment.center,
-                child: Column(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 도입 문장 — 검은 화면 위에 홀로.
+                    Opacity(
+                      opacity: prologue,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          '모든 일기에는\n답장이 필요한 순간이 있다.',
+                          textAlign: TextAlign.center,
+                          style: ScriptFonts.styleFor(
+                            'ko',
+                            base: const TextStyle(
+                              fontSize: 26,
+                              color: Color(0xFFE8D8B0),
+                              height: 1.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Opacity(
+                      opacity: settle.clamp(0.0, 1.0),
+                      child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Transform.scale(
-                  scale: 0.85 + settle * 0.15 + _seg(t, 0.86, 1.0) * 0.25,
+                  scale: 0.85 + settle * 0.15 + _seg(t, 0.88, 1.0) * 0.25,
                   child: SizedBox(
                     width: bookW,
                     height: bookH,
@@ -102,7 +129,7 @@ class _BookIntroState extends State<BookIntro>
                                 ? Palette.cream
                                 : const Color(0xFFEFE1BC),
                             openT: _seg(
-                                t, 0.34 + i * 0.09, 0.52 + i * 0.09),
+                                t, 0.48 + i * 0.07, 0.62 + i * 0.07),
                           ),
                         // 앞표지.
                         Transform(
@@ -117,9 +144,9 @@ class _BookIntroState extends State<BookIntro>
                     const SizedBox(height: 34),
                     // 카피 — 표지가 열리면 은은하게 떠오른다.
                     Opacity(
-                      opacity: _seg(t, 0.30, 0.55) * fade,
+                      opacity: _seg(t, 0.50, 0.72) * fade,
                       child: Text(
-                        '일기를 쓰면, 답장이 와요',
+                        '일기를 쓰면, 답장이 온다.',
                         style: ScriptFonts.styleFor(
                           'ko',
                           base: const TextStyle(
@@ -128,6 +155,9 @@ class _BookIntroState extends State<BookIntro>
                           ),
                         ),
                       ),
+                    ),
+                  ],
+                ),
                     ),
                   ],
                 ),

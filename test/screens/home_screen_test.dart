@@ -21,8 +21,8 @@ void main() {
     ));
     await tester.pump();
 
-    expect(find.textContaining('손으로 적어보세요'), findsOneWidget);
-    expect(find.text('오늘 일기 쓰기'), findsOneWidget);
+    expect(find.textContaining('답장할게요'), findsOneWidget);
+    expect(find.text('오늘의 페이지 열기'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
 
@@ -50,7 +50,7 @@ void main() {
     await TestEnv.unmount(tester);
   });
 
-  testWidgets('인식기가 고장나도 오늘 일기 쓰기가 열린다', (tester) async {
+  testWidgets('인식기가 고장나도 오늘의 페이지 열기가 열린다', (tester) async {
     final env = TestEnv(recognizer: ThrowingRecognizer());
     addTearDown(env.dispose);
 
@@ -60,7 +60,7 @@ void main() {
     ));
     await tester.pump();
 
-    await tester.tap(find.text('오늘 일기 쓰기'));
+    await tester.tap(find.text('오늘의 페이지 열기'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -70,7 +70,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 모델이 없어도 쓰기 화면으로 진입해야 한다.
-    expect(find.text('여기에 마음껏 적어보세요'), findsOneWidget);
+    expect(
+        find.text('마침표(.)를 찍거나 두 번 톡톡 치면 답장이 와요'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
 }

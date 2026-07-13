@@ -192,7 +192,7 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
         builder: (context, _) {
           final dots = '·' * (1 + (_controller.value * 3).floor() % 3);
           return Text(
-            '펜을 들고 있어요 $dots',
+            '답장을 쓰고 있어요 $dots',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall

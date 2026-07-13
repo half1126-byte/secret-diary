@@ -182,7 +182,7 @@ class HomeScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openToday(context, ref),
         icon: const Icon(Icons.edit_outlined),
-        label: const Text('오늘 일기 쓰기'),
+        label: const Text('오늘의 페이지 열기'),
       ),
     );
   }
@@ -209,7 +209,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '일기를 쓰면,\n답장이 와요',
+            '일기를 쓰면,\n답장이 온다',
             textAlign: TextAlign.center,
             style: ScriptFonts.styleFor(
               'ko',
@@ -219,11 +219,12 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '오늘 마음속 이야기를 손으로 적어보세요',
+            '손으로 오늘의 마음을 적어보세요.\n당신의 문장을 읽고, Re가 답장할게요.',
             textAlign: TextAlign.center,
             style: ScriptFonts.styleFor(
               'ko',
-              base: const TextStyle(fontSize: 18, color: Palette.inkFaded),
+              base: const TextStyle(
+                  fontSize: 18, color: Palette.inkFaded, height: 1.5),
             ),
           ),
         ],

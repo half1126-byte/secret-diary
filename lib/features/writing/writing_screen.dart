@@ -363,14 +363,14 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                   ),
                 ),
               ),
-            // 답장을 기다리는 동안의 낮은 숨소리.
+            // 답장을 기다리는 동안 — 일기장이 조용히 생각하는 느낌.
             if (_session.status == AiStatus.thinking &&
                 !_writing.hasInk &&
                 _fadingStrokes == null)
               IgnorePointer(
                 child: Center(
                   child: Text(
-                    '일기 친구가 펜을 들었어요…',
+                    '당신의 문장을 읽고 있어요…',
                     style: ScriptFonts.styleFor(
                       _languageTag,
                       base: const TextStyle(
@@ -407,23 +407,29 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
             if (idleEmpty)
               IgnorePointer(
                 child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '여기에 마음껏 적어보세요',
-                        style: ScriptFonts.styleFor(
-                          _languageTag,
-                          base: const TextStyle(
-                              fontSize: 26, color: Palette.inkFaded),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _emptyPrompt(),
+                          textAlign: TextAlign.center,
+                          style: ScriptFonts.styleFor(
+                            _languageTag,
+                            base: const TextStyle(
+                                fontSize: 25,
+                                color: Palette.inkFaded,
+                                height: 1.5),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '마침표(.)를 찍거나 두 번 톡톡 치면 답장이 와요',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        Text(
+                          '마침표(.)를 찍거나 두 번 톡톡 치면 답장이 와요',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -519,6 +525,26 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
         );
       },
     );
+  }
+
+  /// 오늘의 질문 — 무엇을 써야 할지 모르는 날을 위해, 날짜에 따라 돌아간다.
+  static const _dailyQuestions = [
+    '오늘은 어떤 이야기를\n남기고 싶나요?',
+    '오늘 가장 오래\n마음에 남은 순간은?',
+    '아무에게도\n하지 못한 말은?',
+    '오늘의 나에게\n답장을 쓴다면?',
+    '지금 가장 피하고 싶은\n감정은 무엇인가요?',
+    '한 달 뒤의 내가 오늘의 나에게\n해줄 말은?',
+    '오늘 스쳐 지나간\n작은 다행 하나는?',
+  ];
+
+  String _emptyPrompt() {
+    if (widget.entry.kind == EntryKind.memo) return '무엇이든 끄적여 보세요';
+    if (widget.entry.kind == EntryKind.idea) return '떠오르는 생각을\n그리거나 적어보세요';
+    final dayOfYear = DateTime.now()
+        .difference(DateTime(DateTime.now().year))
+        .inDays;
+    return _dailyQuestions[dayOfYear % _dailyQuestions.length];
   }
 
   static const _sentenceBreak = r'(?<=[.!?…。])\s+';
