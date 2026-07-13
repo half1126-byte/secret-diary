@@ -25,9 +25,12 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // 개인 배포용 임시 서명 (Play 스토어 등록 시 릴리즈 키로 교체).
             signingConfig = signingConfigs.getByName("debug")
+            // R8 코드 축소가 ML Kit 등 플러그인 클래스를 제거해
+            // 실행 즉시 중단되는 문제를 막는다. APK가 조금 커지는 대신 안전.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
