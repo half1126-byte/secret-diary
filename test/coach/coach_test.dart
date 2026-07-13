@@ -23,13 +23,17 @@ ChatMessage msg(String text, {MessageRole role = MessageRole.user}) =>
 
 void main() {
   group('CoachPrompt', () {
-    test('팩폭 플로우와 안전 규칙이 시스템 프롬프트에 있다', () {
+    test('경청→진단→해결책 플로우와 안전 규칙이 시스템 프롬프트에 있다', () {
       final prompt = CoachPrompt.build([msg('퇴사하고 싶다')]);
+      expect(prompt.systemInstruction, contains('LISTEN'));
       expect(prompt.systemInstruction, contains('DIAGNOSE'));
-      expect(prompt.systemInstruction, contains('FORCE A CHOICE'));
+      expect(prompt.systemInstruction, contains('SOLVE'));
       expect(prompt.systemInstruction, contains('핑계'));
       expect(prompt.systemInstruction, contains('same language'));
       expect(prompt.systemInstruction, contains('self-harm'));
+      // 마냥 비아냥·비난이 아니라는 가드레일.
+      expect(prompt.systemInstruction, contains('never the human'));
+      expect(prompt.systemInstruction, contains('criticism without a solution'));
       expect(prompt.turns.single.text, '퇴사하고 싶다');
     });
 
@@ -101,7 +105,7 @@ void main() {
       ));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text('뭐부터 털어놓을 건데?'), findsOneWidget);
+      expect(find.text('무슨 고민인데? 말해봐.'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), '퇴사하고 싶은데 무섭다');
       await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
@@ -143,7 +147,7 @@ void main() {
       ));
       await tester.pump();
       expect(find.byType(CoachScreen), findsOneWidget);
-      expect(find.text('팩폭상담소'), findsOneWidget);
+      expect(find.text('ENTP'), findsOneWidget);
       await TestEnv.unmount(tester);
     });
   });

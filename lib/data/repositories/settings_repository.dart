@@ -55,7 +55,7 @@ class SettingsRepository {
 
   static const _keyCoachHeat = 'coach_heat';
 
-  /// 팩폭상담소의 팩폭 강도 ('mild' | 'spicy' | 'nuclear').
+  /// ENTP 채팅 상담의 팩폭 강도 ('mild' | 'spicy' | 'nuclear').
   Future<String> getCoachHeat() async =>
       await _prefs.getString(_keyCoachHeat) ?? 'spicy';
 

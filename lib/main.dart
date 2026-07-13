@@ -5,7 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app.dart';
 import 'coach/coach_app.dart';
 
-/// 빌드 시 --dart-define=APP_MODE=coach 를 주면 팩폭상담소가 된다.
+/// 빌드 시 --dart-define=APP_MODE=coach 를 주면 ENTP(채팅 상담)가 된다.
 const _appMode = String.fromEnvironment('APP_MODE', defaultValue: 'reme');
 
 Future<void> main() async {

@@ -17,7 +17,7 @@ import 'coach_share_card.dart';
   return (score: score, body: text.substring(match.end).trimLeft());
 }
 
-/// 팩폭상담소 — 단일 채팅 화면.
+/// ENTP — 단일 채팅 화면.
 class CoachScreen extends ConsumerStatefulWidget {
   const CoachScreen({super.key});
 
@@ -76,7 +76,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            Text('팩폭상담소', style: theme.textTheme.titleMedium),
+            Text('ENTP', style: theme.textTheme.titleMedium),
           ],
         ),
         actions: [
@@ -132,10 +132,10 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.center,
                                   children: [
-                                    Text('뭐부터 털어놓을 건데?',
+                                    Text('무슨 고민인데? 말해봐.',
                                         style: theme.textTheme.titleMedium),
                                     const SizedBox(height: 8),
-                                    Text('상황. 핑계 말고.',
+                                    Text('들어주고, 핵심 찌르고, 해결책까지.',
                                         style: theme.textTheme.bodySmall),
                                   ],
                                 ),
@@ -209,7 +209,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _send(),
                           decoration: const InputDecoration(
-                            hintText: '핑계 말고 상황부터.',
+                            hintText: '고민을 풀어놔 봐. 해결까지 간다.',
                           ),
                           style: theme.textTheme.bodyMedium,
                         ),

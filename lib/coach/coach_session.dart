@@ -9,7 +9,7 @@ import 'coach_prompt.dart';
 
 enum CoachStatus { idle, thinking, failed }
 
-/// 팩폭상담소의 대화 세션 — 하나의 연속된 상담 스레드.
+/// ENTP의 대화 세션 — 하나의 연속된 상담 스레드.
 class CoachSession extends ChangeNotifier {
   CoachSession({
     required DiaryRepository repository,

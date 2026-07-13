@@ -63,7 +63,7 @@ Future<void> _share(BuildContext context, GlobalKey boundaryKey) async {
     final file = File('${dir.path}/factbomb.png');
     await file.writeAsBytes(bytes!.buffer.asUint8List());
     await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: '#팩폭상담소'),
+      ShareParams(files: [XFile(file.path)], text: '#ENTP상담소'),
     );
   } catch (_) {
     if (context.mounted) {
@@ -124,7 +124,7 @@ class _FactBombCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                '팩폭상담소 — 실행이 답이다',
+                'ENTP — 핵심을 찌르는 해결책',
                 style: TextStyle(color: CoachColors.textFaded, fontSize: 12),
               ),
             ],

@@ -35,7 +35,7 @@ jobs:
           flutter build apk --release --flavor reme
           --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
-      - name: 팩폭상담소 APK 빌드
+      - name: ENTP APK 빌드
         run: >
           flutter build apk --release --flavor coach
           --dart-define=APP_MODE=coach
@@ -105,7 +105,7 @@ jobs:
           body: |
             ✍️ Re:Me — 일기를 쓰면, 답장이 와요.
             - `secret-diary.apk` — Re:Me (손글씨 일기), Android 폰에서 바로 설치
-            - `coach.apk` — 팩폭상담소 (직설 채팅 상담), Android 전용
+            - `coach.apk` — ENTP (고민을 들어주고 핵심을 찌르는 직설 상담), Android 전용
             - `secret-diary.ipa` — Re:Me iPhone용, PC의 Sideloadly로 설치
           files: |
             secret-diary.apk

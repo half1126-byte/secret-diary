@@ -28,7 +28,7 @@ android {
         resValues = true
     }
 
-    // 한 저장소에서 두 앱: Re:Me(일기)와 팩폭상담소(채팅 코치).
+    // 한 저장소에서 두 앱: Re:Me(일기)와 ENTP(채팅 상담).
     // 앱 ID가 달라 폰에 나란히 설치된다.
     flavorDimensions += "app"
     productFlavors {
@@ -39,7 +39,7 @@ android {
         create("coach") {
             dimension = "app"
             applicationId = "dev.secretdiary.coach"
-            resValue("string", "app_name", "팩폭상담소")
+            resValue("string", "app_name", "ENTP")
         }
     }
 

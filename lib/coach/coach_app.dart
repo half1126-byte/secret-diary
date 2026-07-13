@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'coach_screen.dart';
 
-/// 팩폭상담소 — 차갑고 사무적인 다크 테마.
+/// ENTP — 차갑고 사무적인 다크 테마.
 abstract final class CoachColors {
   static const bg = Color(0xFF15171C);
   static const surface = Color(0xFF1F232B);
@@ -18,7 +18,7 @@ class CoachApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '팩폭상담소',
+      title: 'ENTP',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
