@@ -209,12 +209,21 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '오늘 마음속 이야기를\n손으로 적어보세요',
+            '일기를 쓰면,\n답장이 와요',
             textAlign: TextAlign.center,
             style: ScriptFonts.styleFor(
               'ko',
               base: const TextStyle(
-                  fontSize: 24, color: Palette.inkFaded, height: 1.4),
+                  fontSize: 28, color: Palette.ink, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '오늘 마음속 이야기를 손으로 적어보세요',
+            textAlign: TextAlign.center,
+            style: ScriptFonts.styleFor(
+              'ko',
+              base: const TextStyle(fontSize: 18, color: Palette.inkFaded),
             ),
           ),
         ],

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../theme/palette.dart';
+import '../theme/script_fonts.dart';
 
 /// 앱을 열면 낡은 가죽 일기장이 펼쳐지며 페이지가 촤라락 넘어가는 인트로.
 ///
@@ -71,7 +72,10 @@ class _BookIntroState extends State<BookIntro>
                   ),
                 ),
                 alignment: Alignment.center,
-                child: Transform.scale(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Transform.scale(
                   scale: 0.85 + settle * 0.15 + _seg(t, 0.86, 1.0) * 0.25,
                   child: SizedBox(
                     width: bookW,
@@ -109,6 +113,23 @@ class _BookIntroState extends State<BookIntro>
                       ],
                     ),
                   ),
+                ),
+                    const SizedBox(height: 34),
+                    // 카피 — 표지가 열리면 은은하게 떠오른다.
+                    Opacity(
+                      opacity: _seg(t, 0.30, 0.55) * fade,
+                      child: Text(
+                        '일기를 쓰면, 답장이 와요',
+                        style: ScriptFonts.styleFor(
+                          'ko',
+                          base: const TextStyle(
+                            fontSize: 24,
+                            color: Color(0xFFE8D8B0),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
