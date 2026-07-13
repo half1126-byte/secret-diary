@@ -71,3 +71,31 @@ jobs:
         with:
           name: secret-diary-ios
           path: secret-diary.ipa
+
+  release:
+    name: Releases에 등록 (로그인 없이 다운로드)
+    runs-on: ubuntu-latest
+    needs: [android, ios]
+    permissions:
+      contents: write
+    steps:
+      - name: 아티팩트 내려받기
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: APK 이름 정리
+        run: mv app-release.apk secret-diary.apk
+
+      - name: Release 생성
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: 비밀 일기 빌드 build-${{ github.run_number }}
+          body: |
+            ✍️ 비밀 일기 자동 빌드입니다.
+            - `secret-diary.apk` — Android 폰에서 바로 설치
+            - `secret-diary.ipa` — iPhone은 PC의 Sideloadly로 설치
+          files: |
+            secret-diary.apk
+            secret-diary.ipa
