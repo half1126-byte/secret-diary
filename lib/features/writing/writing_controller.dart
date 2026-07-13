@@ -16,6 +16,7 @@ class WritingController extends ChangeNotifier {
     required HandwritingRecognizer recognizer,
     required String languageTag,
     this.recognizeDebounce = const Duration(milliseconds: 1200),
+    this.autoSendDelay = const Duration(milliseconds: 2200),
     this.preContextProvider,
   })  : _recognizer = recognizer, // ignore: prefer_initializing_formals
         _languageTag = languageTag; // ignore: prefer_initializing_formals
@@ -23,8 +24,17 @@ class WritingController extends ChangeNotifier {
   final HandwritingRecognizer _recognizer;
   final Duration recognizeDebounce;
 
+  /// 마침표로 문장을 끝낸 뒤 자동 전송까지의 대기 시간.
+  final Duration autoSendDelay;
+
+  /// 인식된 글이 마침표로 끝나고 [autoSendDelay]만큼 손이 멈추면 호출된다.
+  /// 영상 속 "마침표를 찍으면 잉크가 스며들며 답장이 오는" 흐름의 트리거.
+  VoidCallback? onAutoSend;
+
   /// 이미 전송된 텍스트의 끝부분을 인식 힌트로 제공.
   final String Function()? preContextProvider;
+
+  static const _sentenceEnders = ['.', '。'];
 
   String _languageTag;
   String get languageTag => _languageTag;
@@ -52,6 +62,7 @@ class WritingController extends ChangeNotifier {
   int _generation = 0;
 
   void addStroke(DiaryStroke stroke) {
+    _autoSendTimer?.cancel();
     _strokes.add(stroke);
     _textEditedManually = false;
     _scheduleRecognition();
@@ -60,6 +71,7 @@ class WritingController extends ChangeNotifier {
 
   void undoStroke() {
     if (_strokes.isEmpty) return;
+    _autoSendTimer?.cancel();
     _strokes.removeLast();
     _textEditedManually = false;
     if (_strokes.isEmpty) {
@@ -75,6 +87,7 @@ class WritingController extends ChangeNotifier {
 
   void clear() {
     _debounce?.cancel();
+    _autoSendTimer?.cancel();
     _generation++;
     _strokes.clear();
     _recognizedText = '';
@@ -88,8 +101,10 @@ class WritingController extends ChangeNotifier {
     _recognizedText = text;
     _textEditedManually = true;
     _debounce?.cancel();
+    _autoSendTimer?.cancel();
     _generation++;
     _recognizing = false;
+    _maybeScheduleAutoSend();
     notifyListeners();
   }
 
@@ -127,6 +142,7 @@ class WritingController extends ChangeNotifier {
         return;
       }
       _recognizedText = result.text;
+      _maybeScheduleAutoSend();
     } catch (_) {
       // 인식 실패는 치명적이지 않다 — 기존 텍스트 유지.
       if (_disposed || generation != _generation) return;
@@ -136,6 +152,19 @@ class WritingController extends ChangeNotifier {
         _recognizing = false;
         notifyListeners();
       }
+    }
+  }
+
+  Timer? _autoSendTimer;
+
+  void _maybeScheduleAutoSend() {
+    _autoSendTimer?.cancel();
+    if (onAutoSend == null || _strokes.isEmpty) return;
+    final text = _recognizedText.trim();
+    if (_sentenceEnders.any(text.endsWith)) {
+      _autoSendTimer = Timer(autoSendDelay, () {
+        if (!_disposed) onAutoSend?.call();
+      });
     }
   }
 
@@ -152,6 +181,7 @@ class WritingController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _debounce?.cancel();
+    _autoSendTimer?.cancel();
     super.dispose();
   }
 }

@@ -7,10 +7,12 @@ import '../../core/theme/script_fonts.dart';
 import '../../core/widgets/paper_background.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/diary_entry.dart';
+import '../../data/models/stroke.dart';
 import '../../providers.dart';
 import '../settings/language_model_sheet.dart';
 import '../settings/settings_screen.dart';
 import 'canvas/handwriting_canvas.dart';
+import 'canvas/stroke_painter.dart';
 import 'chat_thread.dart';
 import 'entry_session.dart';
 import 'writing_controller.dart';
@@ -25,7 +27,8 @@ class WritingScreen extends ConsumerStatefulWidget {
   ConsumerState<WritingScreen> createState() => _WritingScreenState();
 }
 
-class _WritingScreenState extends ConsumerState<WritingScreen> {
+class _WritingScreenState extends ConsumerState<WritingScreen>
+    with TickerProviderStateMixin {
   late WritingController _writing;
   late EntrySession _session;
   late String _languageTag;
@@ -35,15 +38,38 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
 
   String _sentText = '';
 
+  /// 전송 직후 종이에 스며들며 사라지는 잉크.
+  List<DiaryStroke>? _fadingStrokes;
+  late final AnimationController _fadeController;
+
+  /// 캔버스 위에 손글씨로 써지는 AI 답장.
+  String? _replyReveal;
+  late final AnimationController _revealController;
+
   @override
   void initState() {
     super.initState();
+    // dispose에서 late 초기화가 일어나지 않도록 여기서 즉시 만든다.
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() => _fadingStrokes = null);
+        }
+      });
+    _revealController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
     _languageTag = widget.entry.languageTag;
     _writing = WritingController(
       recognizer: ref.read(recognizerProvider),
       languageTag: _languageTag,
       preContextProvider: () => _sentText,
     );
+    // 문장 끝 마침표 → 잠시 뒤 자동 전송 (영상 속 마법의 트리거).
+    _writing.onAutoSend = _send;
     _session = EntrySession(
       repository: ref.read(diaryRepositoryProvider),
       settings: ref.read(settingsRepositoryProvider),
@@ -54,6 +80,8 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
 
   @override
   void dispose() {
+    _fadeController.dispose();
+    _revealController.dispose();
     _writing.dispose();
     _session.dispose();
     super.dispose();
@@ -63,11 +91,42 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
     final snapshot = _writing.takeSnapshot();
     if (snapshot == null) return;
     _sentText = '$_sentText ${snapshot.text}'.trim();
-    setState(() => _writingMode = false);
+
+    // 1) 방금 쓴 잉크가 종이에 스며들 듯 사라진다.
+    setState(() {
+      _replyReveal = null;
+      _fadingStrokes = snapshot.strokes;
+    });
+    _fadeController.forward(from: 0);
+
+    // 2) 저장 + AI 답장 요청.
     await _session.sendUserMessage(
       text: snapshot.text,
       strokes: snapshot.strokes,
     );
+    if (!mounted) return;
+
+    if (_session.status == AiStatus.failed) {
+      // 오류는 대화 화면의 카드(재시도/안내)로 보여준다.
+      setState(() {
+        _fadingStrokes = null;
+        _writingMode = false;
+      });
+      return;
+    }
+
+    // 3) 답장이 손글씨로 한 글자씩 써진다.
+    final reply = _session.lastAiReply;
+    if (reply != null && _writingMode) {
+      setState(() {
+        _fadingStrokes = null;
+        _replyReveal = reply;
+      });
+      _revealController.duration = Duration(
+        milliseconds: (reply.characters.length * 60).clamp(900, 8000),
+      );
+      _revealController.forward(from: 0);
+    }
   }
 
   Future<void> _pickLanguage() async {
@@ -139,8 +198,12 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
   Widget _buildCanvas() {
     return ListenableBuilder(
       key: const ValueKey('canvas'),
-      listenable: _writing,
+      listenable: Listenable.merge([_writing, _session]),
       builder: (context, _) {
+        final idleEmpty = !_writing.hasInk &&
+            _fadingStrokes == null &&
+            _replyReveal == null &&
+            _session.status != AiStatus.thinking;
         return Stack(
           children: [
             LayoutBuilder(
@@ -148,10 +211,76 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
                 _writing.writingArea = constraints.biggest;
                 return HandwritingCanvas(
                   strokes: _writing.strokes,
-                  onStrokeEnd: _writing.addStroke,
+                  onStrokeEnd: (stroke) {
+                    // 새로 쓰기 시작하면 답장은 조용히 물러난다.
+                    if (_replyReveal != null) {
+                      setState(() => _replyReveal = null);
+                    }
+                    _writing.addStroke(stroke);
+                  },
                 );
               },
             ),
+            // 전송된 잉크가 종이에 스며들며 사라지는 레이어.
+            if (_fadingStrokes != null)
+              IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _fadeController,
+                  builder: (context, _) => Opacity(
+                    opacity: 1 - Curves.easeIn.transform(_fadeController.value),
+                    child: CustomPaint(
+                      size: Size.infinite,
+                      painter: StrokesPainter(
+                        strokes: _fadingStrokes!,
+                        color: Palette.ink,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            // AI 답장이 손글씨로 한 글자씩 써지는 레이어.
+            if (_replyReveal != null)
+              IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _revealController,
+                  builder: (context, _) {
+                    final chars = _replyReveal!.characters;
+                    final count =
+                        (chars.length * _revealController.value).round();
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 64, 28, 120),
+                      child: Text(
+                        chars.take(count).toString(),
+                        style: ScriptFonts.styleFor(
+                          _languageTag,
+                          base: TextStyle(
+                            fontSize:
+                                22 * ScriptFonts.scaleFor(_languageTag) / 1.2,
+                            color: Palette.sage,
+                            height: 1.9,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            // 답장을 기다리는 동안의 낮은 숨소리.
+            if (_session.status == AiStatus.thinking &&
+                !_writing.hasInk &&
+                _fadingStrokes == null)
+              IgnorePointer(
+                child: Center(
+                  child: Text(
+                    '일기 친구가 펜을 들었어요…',
+                    style: ScriptFonts.styleFor(
+                      _languageTag,
+                      base: const TextStyle(
+                          fontSize: 20, color: Palette.inkFaded),
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               top: 4,
               right: 8,
@@ -177,16 +306,26 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
                 ],
               ),
             ),
-            if (!_writing.hasInk)
+            if (idleEmpty)
               IgnorePointer(
                 child: Center(
-                  child: Text(
-                    '여기에 마음껏 적어보세요',
-                    style: ScriptFonts.styleFor(
-                      _languageTag,
-                      base: const TextStyle(
-                          fontSize: 26, color: Palette.inkFaded),
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '여기에 마음껏 적어보세요',
+                        style: ScriptFonts.styleFor(
+                          _languageTag,
+                          base: const TextStyle(
+                              fontSize: 26, color: Palette.inkFaded),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '문장 끝에 마침표(.)를 찍으면 답장이 와요',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
                 ),
               ),

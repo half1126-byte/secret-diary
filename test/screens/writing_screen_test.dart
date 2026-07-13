@@ -9,6 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:secret_diary/data/repositories/diary_repository.dart';
 import 'package:secret_diary/features/writing/canvas/handwriting_canvas.dart';
 import 'package:secret_diary/features/writing/writing_screen.dart';
+import 'package:secret_diary/services/handwriting/fake_recognizer.dart';
 
 import '../helpers/test_env.dart';
 
@@ -42,8 +43,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  testWidgets('키가 없으면 전송 후 키 연결 카드가 보인다', (tester) async {
-    final env = TestEnv(); // apiKey 없음
+  testWidgets('키 없는 빌드는 전송 후 안내 카드가 보인다', (tester) async {
+    final env = TestEnv(); // 내장 키 없는 빌드
     addTearDown(env.dispose);
     final repo = DiaryRepository(env.db);
     final entry = await repo.createEntry(languageTag: 'ko');
@@ -58,12 +59,12 @@ void main() {
     expect(messages.single.text, '가짜 인식 결과');
     expect(messages.single.strokes, isNotEmpty);
 
-    // 키 연결 안내 카드.
-    expect(find.textContaining('무료 Gemini 키를 연결하면'), findsOneWidget);
+    // AI 미준비 안내 카드.
+    expect(find.textContaining('AI 일기 친구가'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
 
-  testWidgets('키가 있으면 AI 답장이 스레드에 나타난다', (tester) async {
+  testWidgets('키가 있으면 답장이 캔버스 위에 손글씨로 써진다', (tester) async {
     final env = TestEnv(
       apiKey: 'test-key',
       geminiHttp: MockClient((request) async {
@@ -90,12 +91,64 @@ void main() {
 
     await pumpWriting(tester, env, entryId: entry.id);
     await writeAndSend(tester);
-    await tester.pump(const Duration(seconds: 1));
+    // 잉크 페이드아웃 + 답장 손글씨 리빌 애니메이션 진행.
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 9));
 
     final messages = await repo.getMessages(entry.id);
     expect(messages, hasLength(2));
     expect(messages.last.text, '오늘 하루도 수고 많았어요.');
+    // 대화 화면으로 전환되지 않고 캔버스 위에 답장이 그대로 써진다.
     expect(find.text('오늘 하루도 수고 많았어요.'), findsOneWidget);
+    expect(find.text('이어 쓰기'), findsNothing); // 스레드 모드 FAB 없음 = 캔버스 모드
+    await TestEnv.unmount(tester);
+  });
+
+  testWidgets('마침표를 찍으면 자동으로 전송되고 답장이 써진다', (tester) async {
+    final env = TestEnv(
+      apiKey: 'test-key',
+      recognizer: FakeRecognizer(result: '오늘은 비가 왔다.'),
+      geminiHttp: MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': '비 오는 날, 참 좋죠.'},
+                  ],
+                },
+              },
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    );
+    addTearDown(env.dispose);
+    final repo = DiaryRepository(env.db);
+    final entry = await repo.createEntry(languageTag: 'ko');
+
+    await pumpWriting(tester, env, entryId: entry.id);
+
+    // 획을 긋고 (전송 버튼을 누르지 않는다!)
+    await tester.timedDrag(
+      find.byType(HandwritingCanvas),
+      const Offset(80, 30),
+      const Duration(milliseconds: 100),
+    );
+    await tester.pump(const Duration(milliseconds: 1300)); // 인식: '...왔다.'
+    expect(find.text('오늘은 비가 왔다.'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 2300)); // 자동 전송 대기
+    await tester.pump(const Duration(seconds: 2)); // 페이드 + 응답
+    await tester.pump(const Duration(seconds: 9)); // 손글씨 리빌 완료
+
+    final messages = await repo.getMessages(entry.id);
+    expect(messages, hasLength(2));
+    expect(messages.first.text, '오늘은 비가 왔다.');
+    expect(find.text('비 오는 날, 참 좋죠.'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
 

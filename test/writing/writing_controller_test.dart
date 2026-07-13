@@ -90,6 +90,58 @@ void main() {
     });
   });
 
+  test('마침표로 끝나면 대기 후 자동 전송이 발동한다', () {
+    fakeAsync((async) {
+      var autoSends = 0;
+      final controller = WritingController(
+        recognizer: FakeRecognizer(result: '오늘은 좋은 하루였다.'),
+        languageTag: 'ko',
+      )..onAutoSend = () => autoSends++;
+
+      controller.addStroke(stroke());
+      async.elapse(const Duration(milliseconds: 1300)); // 인식 완료
+      expect(autoSends, 0);
+
+      async.elapse(const Duration(milliseconds: 2300)); // 자동 전송 대기
+      expect(autoSends, 1);
+    });
+  });
+
+  test('마침표가 없으면 자동 전송하지 않는다', () {
+    fakeAsync((async) {
+      var autoSends = 0;
+      final controller = WritingController(
+        recognizer: FakeRecognizer(result: '아직 쓰는 중'),
+        languageTag: 'ko',
+      )..onAutoSend = () => autoSends++;
+
+      controller.addStroke(stroke());
+      async.elapse(const Duration(seconds: 10));
+      expect(autoSends, 0);
+    });
+  });
+
+  test('자동 전송 대기 중 새 획을 쓰면 취소된다', () {
+    fakeAsync((async) {
+      var autoSends = 0;
+      final controller = WritingController(
+        recognizer: FakeRecognizer(result: '끝난 줄 알았지.'),
+        languageTag: 'ko',
+      )..onAutoSend = () => autoSends++;
+
+      controller.addStroke(stroke());
+      async.elapse(const Duration(milliseconds: 1300)); // 인식 완료
+      controller.addStroke(stroke(30)); // 이어서 쓰기 시작
+      async.elapse(const Duration(milliseconds: 1000));
+      expect(autoSends, 0); // 취소됨
+
+      // 두 번째 인식이 다시 마침표로 끝나면 다시 예약된다.
+      async.elapse(const Duration(milliseconds: 400)); // 인식 완료(1.2s)
+      async.elapse(const Duration(milliseconds: 2300));
+      expect(autoSends, 1);
+    });
+  });
+
   test('takeSnapshot이 획과 텍스트를 떼어내고 비운다', () {
     fakeAsync((async) {
       final controller = WritingController(

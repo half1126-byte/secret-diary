@@ -31,7 +31,12 @@ class GeminiClient {
   /// 429/503에 대한 재시도 횟수.
   final int maxRetries;
 
-  static const _base = 'https://generativelanguage.googleapis.com/v1beta';
+  /// 기본은 Google 공식 엔드포인트. 테스트/데모에서만
+  /// --dart-define=GEMINI_BASE_URL=... 로 바꿀 수 있다.
+  static const _base = String.fromEnvironment(
+    'GEMINI_BASE_URL',
+    defaultValue: 'https://generativelanguage.googleapis.com/v1beta',
+  );
 
   /// 대화를 보내고 답장 텍스트를 받는다.
   Future<String> generateReply({

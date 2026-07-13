@@ -35,6 +35,10 @@ class EntrySession extends ChangeNotifier {
   GeminiErrorType? _lastError;
   GeminiErrorType? get lastError => _lastError;
 
+  /// 가장 최근에 도착한 AI 답장 (캔버스 위 손글씨 답장 연출용).
+  String? _lastAiReply;
+  String? get lastAiReply => _lastAiReply;
+
   bool _disposed = false;
 
   /// 매번 새 drift 스트림을 만들지 않도록 캐시해서 재사용한다.
@@ -67,6 +71,7 @@ class EntrySession extends ChangeNotifier {
   Future<void> requestAiReply() async {
     _status = AiStatus.thinking;
     _lastError = null;
+    _lastAiReply = null;
     _notify();
 
     try {
@@ -103,6 +108,7 @@ class EntrySession extends ChangeNotifier {
         role: MessageRole.ai,
         text: reply,
       );
+      _lastAiReply = reply;
       _status = AiStatus.idle;
     } on GeminiException catch (e) {
       _status = AiStatus.failed;

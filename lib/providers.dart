@@ -29,7 +29,10 @@ final recognizerProvider = Provider<HandwritingRecognizer>((ref) {
   final isMobile = !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
-  final recognizer = isMobile ? MlKitRecognizer() : FakeRecognizer();
+  // 데스크톱 미리보기: 마침표로 끝나는 문장을 돌려줘 자동 전송 흐름도 체험 가능.
+  final recognizer = isMobile
+      ? MlKitRecognizer()
+      : FakeRecognizer(result: '오늘도 조용히 하루가 지나갔다.');
   ref.onDispose(recognizer.dispose);
   return recognizer;
 });
