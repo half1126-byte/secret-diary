@@ -30,6 +30,19 @@ flutter run                          # 연결된 기기/에뮬레이터에서 �
 - **iOS**: iOS 15.5 이상 (ML Kit 요구사항 — `ios/` 에서 `pod install` 필요)
 - 손글씨 인식(ML Kit)은 **실기기에서만** 동작합니다. 에뮬레이터에서도 UI는 확인 가능해요.
 
+### 💻 PC에서 미리 보기 (Windows/Linux 데스크톱)
+
+폰 없이 디자인·UI·흐름을 확인할 수 있습니다. 마우스로 손글씨를 쓸 수 있고,
+손글씨 인식만 가짜 인식기로 대체됩니다 (AI 답장은 키가 있으면 실제로 동작).
+
+```bash
+# Windows: Flutter SDK + Visual Studio(C++ 데스크톱 개발 워크로드) 설치 후
+flutter run -d windows
+
+# Linux: clang/cmake/ninja/libgtk-3-dev/libsecret-1-dev 설치 후
+flutter run -d linux
+```
+
 ## AI 답장 연결하기 (무료, 1분)
 
 1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 접속 → 구글 계정 로그인
