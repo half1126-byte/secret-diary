@@ -39,6 +39,11 @@ void main() {
 
     // downloadedModels()가 throw해도 AI/모델 상태는 정상 로딩되어야 한다.
     expect(find.text('일기 친구가 함께하고 있어요'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.textContaining('아직 내려받은 언어 모델이 없어요'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.textContaining('아직 내려받은 언어 모델이 없어요'), findsOneWidget);
     await TestEnv.unmount(tester);
   });

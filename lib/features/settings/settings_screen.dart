@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/palette.dart';
 import '../../core/theme/script_fonts.dart';
 import '../../core/widgets/paper_background.dart';
+import '../../data/models/writing_prefs.dart';
 import '../../providers.dart';
 import '../../services/ai/gemini_client.dart';
 import 'language_model_sheet.dart';
@@ -160,6 +161,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            _sectionTitle('답장 스타일'),
+            _ReplyStyleCard(),
+            const SizedBox(height: 24),
             _sectionTitle('손글씨 인식 언어'),
             Card(
               child: Column(
@@ -254,4 +258,158 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 .titleSmall
                 ?.copyWith(color: Palette.inkFaded)),
       );
+}
+
+/// 답장 폰트·크기·속도·전송 대기 조절 카드 (실시간 미리보기 포함).
+class _ReplyStyleCard extends ConsumerWidget {
+  static const _speeds = <String, int>{
+    '천천히': 100,
+    '보통': 60,
+    '빠르게': 30,
+  };
+
+  static const _waits = <String, int>{
+    '짧게 (1.5초)': 1500,
+    '보통 (2.2초)': 2200,
+    '길게 (3초)': 3000,
+  };
+
+  Future<void> _update(
+    WidgetRef ref,
+    WritingPrefs Function(WritingPrefs) change,
+  ) async {
+    final next = change(ref.read(writingPrefsProvider));
+    ref.read(writingPrefsProvider.notifier).state = next;
+    await ref.read(settingsRepositoryProvider).setWritingPrefs(next);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final prefs = ref.watch(writingPrefsProvider);
+    final languageTag = ref.watch(languageTagProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 미리보기 — 지금 취향 그대로.
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Text(
+                '오늘도 참 애썼어요.',
+                textAlign: TextAlign.center,
+                style: ScriptFonts.replyStyle(
+                  languageTag,
+                  prefs.replyFont,
+                  base: TextStyle(
+                    fontSize: 22 *
+                        prefs.replyScale *
+                        ScriptFonts.scaleFor(languageTag) /
+                        1.2,
+                    color: Palette.sage,
+                    height: 1.6,
+                  ),
+                ),
+              ),
+            ),
+            const Divider(),
+            Row(
+              children: [
+                Expanded(child: Text('답장 폰트', style: theme.textTheme.bodyMedium)),
+                DropdownButton<String>(
+                  value: ScriptFonts.replyFontChoices.containsKey(prefs.replyFont)
+                      ? prefs.replyFont
+                      : 'auto',
+                  underline: const SizedBox.shrink(),
+                  items: [
+                    for (final entry in ScriptFonts.replyFontChoices.entries)
+                      DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(
+                          entry.value,
+                          style: entry.key == 'auto'
+                              ? null
+                              : ScriptFonts.byName(
+                                  entry.key,
+                                  base: const TextStyle(
+                                      fontSize: 18, color: Palette.ink),
+                                ),
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      _update(ref, (p) => p.copyWith(replyFont: value));
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('글씨 크기', style: theme.textTheme.bodyMedium),
+            Slider(
+              value: prefs.replyScale.clamp(0.8, 1.6),
+              min: 0.8,
+              max: 1.6,
+              divisions: 4,
+              activeColor: Palette.terracotta,
+              label: '${(prefs.replyScale * 100).round()}%',
+              onChanged: (value) =>
+                  _update(ref, (p) => p.copyWith(replyScale: value)),
+            ),
+            const SizedBox(height: 4),
+            Text('답장이 써지는 속도', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 8),
+            SegmentedButton<int>(
+              segments: [
+                for (final entry in _speeds.entries)
+                  ButtonSegment(value: entry.value, label: Text(entry.key)),
+              ],
+              selected: {
+                _speeds.values.contains(prefs.revealMsPerChar)
+                    ? prefs.revealMsPerChar
+                    : 60,
+              },
+              onSelectionChanged: (selection) => _update(
+                  ref, (p) => p.copyWith(revealMsPerChar: selection.first)),
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: Palette.terracotta,
+                selectedForegroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('마침표 후 전송까지 기다리는 시간',
+                style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 8),
+            SegmentedButton<int>(
+              segments: [
+                for (final entry in _waits.entries)
+                  ButtonSegment(value: entry.value, label: Text(entry.key)),
+              ],
+              selected: {
+                _waits.values.contains(prefs.autoSendMs)
+                    ? prefs.autoSendMs
+                    : 2200,
+              },
+              onSelectionChanged: (selection) =>
+                  _update(ref, (p) => p.copyWith(autoSendMs: selection.first)),
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: Palette.terracotta,
+                selectedForegroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '화면을 빠르게 두 번 톡톡 치면 기다리지 않고 바로 보낼 수 있어요.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

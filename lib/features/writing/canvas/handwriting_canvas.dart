@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -16,6 +18,7 @@ class HandwritingCanvas extends StatefulWidget {
     super.key,
     required this.strokes,
     required this.onStrokeEnd,
+    this.onDoubleTap,
     this.inkColor = Palette.ink,
     this.strokeSize = 4.5,
   });
@@ -25,6 +28,10 @@ class HandwritingCanvas extends StatefulWidget {
 
   /// 펜을 뗄 때 완성된 획을 전달.
   final ValueChanged<DiaryStroke> onStrokeEnd;
+
+  /// 빠르게 두 번 톡톡 — "내 이야기는 여기까지"라는 신호.
+  /// 첫 번째 톡은 잉크(마침표)로 남고, 두 번째 톡은 신호로만 쓰인다.
+  final VoidCallback? onDoubleTap;
 
   final Color inkColor;
   final double strokeSize;
@@ -37,7 +44,16 @@ class _HandwritingCanvasState extends State<HandwritingCanvas> {
   final List<DiaryPoint> _activePoints = [];
   int? _activePointer;
   bool _stylusSeen = false;
-  final Stopwatch _clock = Stopwatch()..start();
+
+  /// 첫 이벤트 기준 상대 시각(ms). PointerEvent.timeStamp를 쓰므로
+  /// 테스트의 가짜 시계와 실기기의 하드웨어 시계 모두에서 일관된다.
+  int? _epochMs;
+
+  int _eventMs(PointerEvent event) {
+    final ms = event.timeStamp.inMilliseconds;
+    _epochMs ??= ms;
+    return ms - _epochMs!;
+  }
 
   bool _acceptPointer(PointerEvent event) {
     if (event.kind == PointerDeviceKind.stylus) {
@@ -65,7 +81,7 @@ class _HandwritingCanvasState extends State<HandwritingCanvas> {
         x: event.localPosition.dx,
         y: event.localPosition.dy,
         pressure: _normalizedPressure(event),
-        t: _clock.elapsedMilliseconds,
+        t: _eventMs(event),
       );
 
   void _onDown(PointerDownEvent event) {
@@ -83,6 +99,19 @@ class _HandwritingCanvasState extends State<HandwritingCanvas> {
     setState(() => _activePoints.add(_toPoint(event)));
   }
 
+  /// 더블터치 인식 창. 이벤트 timeStamp는 테스트 가짜 시계를 따르지 않아
+  /// Timer(존 시계 기반)로 창을 연다.
+  Timer? _tapWindow;
+  Offset? _lastTapPos;
+
+  /// 짧고 작은 획 = 톡(탭). 마침표 점도 여기에 해당한다.
+  static bool _looksLikeTap(List<DiaryPoint> points) {
+    if (points.isEmpty) return false;
+    if (points.last.t - points.first.t > 220) return false;
+    final box = StrokeCodec.boundingBox([DiaryStroke(points: points)]);
+    return box.width < 14 && box.height < 14;
+  }
+
   void _onEnd(PointerEvent event) {
     if (event.pointer != _activePointer) return;
     final stroke = DiaryStroke(points: List.unmodifiable(_activePoints));
@@ -90,7 +119,36 @@ class _HandwritingCanvasState extends State<HandwritingCanvas> {
       _activePointer = null;
       _activePoints.clear();
     });
-    if (stroke.points.isNotEmpty) widget.onStrokeEnd(stroke);
+    if (stroke.points.isEmpty) return;
+
+    if (widget.onDoubleTap != null && _looksLikeTap(stroke.points)) {
+      final pos = stroke.points.first.offset;
+      if (_tapWindow != null &&
+          _tapWindow!.isActive &&
+          (_lastTapPos! - pos).distance < 60) {
+        // 두 번째 톡: 잉크로 남기지 않고 신호만 보낸다.
+        _tapWindow!.cancel();
+        _tapWindow = null;
+        _lastTapPos = null;
+        widget.onDoubleTap!();
+        return;
+      }
+      _tapWindow?.cancel();
+      _tapWindow = Timer(const Duration(milliseconds: 400), () {});
+      _lastTapPos = pos;
+    } else {
+      _tapWindow?.cancel();
+      _tapWindow = null;
+      _lastTapPos = null;
+    }
+
+    widget.onStrokeEnd(stroke);
+  }
+
+  @override
+  void dispose() {
+    _tapWindow?.cancel();
+    super.dispose();
   }
 
   @override

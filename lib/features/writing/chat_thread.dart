@@ -21,6 +21,7 @@ class ChatThread extends StatelessWidget {
     required this.lastError,
     required this.onRetry,
     required this.onOpenSettings,
+    this.aiTextStyle,
   });
 
   final List<ChatMessage> messages;
@@ -30,13 +31,20 @@ class ChatThread extends StatelessWidget {
   final VoidCallback onRetry;
   final VoidCallback onOpenSettings;
 
+  /// AI 답장 스타일 (취향 설정 반영). 없으면 언어 기본 폰트.
+  final TextStyle? aiTextStyle;
+
   @override
   Widget build(BuildContext context) {
     final items = <Widget>[
       for (final message in messages)
         message.role == MessageRole.user
             ? _UserBubble(message: message, languageTag: languageTag)
-            : _AiBubble(message: message, languageTag: languageTag),
+            : _AiBubble(
+                message: message,
+                languageTag: languageTag,
+                style: aiTextStyle,
+              ),
       if (status == AiStatus.thinking) const _ThinkingIndicator(),
       if (status == AiStatus.failed)
         lastError == GeminiErrorType.noApiKey
@@ -118,21 +126,27 @@ class _UserBubble extends StatelessWidget {
 }
 
 class _AiBubble extends StatelessWidget {
-  const _AiBubble({required this.message, required this.languageTag});
+  const _AiBubble({
+    required this.message,
+    required this.languageTag,
+    this.style,
+  });
 
   final ChatMessage message;
   final String languageTag;
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    final style = ScriptFonts.styleFor(
-      languageTag,
-      base: TextStyle(
-        fontSize: 19 * ScriptFonts.scaleFor(languageTag) / 1.2,
-        color: Palette.sage,
-        height: 1.5,
-      ),
-    );
+    final style = this.style ??
+        ScriptFonts.styleFor(
+          languageTag,
+          base: TextStyle(
+            fontSize: 19 * ScriptFonts.scaleFor(languageTag) / 1.2,
+            color: Palette.sage,
+            height: 1.5,
+          ),
+        );
 
     return Align(
       alignment: Alignment.centerLeft,

@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/writing_prefs.dart';
+
 /// 앱 설정 저장소.
 ///
 /// Gemini API 키는 앱을 빌드하는 사람(제작자)이 빌드 시점에 내장한다:
@@ -40,4 +42,23 @@ class SettingsRepository {
       await _prefs.getString(_keyModel) ?? defaultModel;
 
   Future<void> setModel(String model) => _prefs.setString(_keyModel, model);
+
+  static const _keyReplyFont = 'reply_font';
+  static const _keyReplyScale = 'reply_scale';
+  static const _keyRevealMs = 'reveal_ms_per_char';
+  static const _keyAutoSendMs = 'auto_send_ms';
+
+  Future<WritingPrefs> getWritingPrefs() async => WritingPrefs(
+        replyFont: await _prefs.getString(_keyReplyFont) ?? 'auto',
+        replyScale: await _prefs.getDouble(_keyReplyScale) ?? 1.0,
+        revealMsPerChar: await _prefs.getInt(_keyRevealMs) ?? 60,
+        autoSendMs: await _prefs.getInt(_keyAutoSendMs) ?? 2200,
+      );
+
+  Future<void> setWritingPrefs(WritingPrefs prefs) async {
+    await _prefs.setString(_keyReplyFont, prefs.replyFont);
+    await _prefs.setDouble(_keyReplyScale, prefs.replyScale);
+    await _prefs.setInt(_keyRevealMs, prefs.revealMsPerChar);
+    await _prefs.setInt(_keyAutoSendMs, prefs.autoSendMs);
+  }
 }

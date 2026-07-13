@@ -17,10 +17,13 @@ final _entriesProvider = StreamProvider<List<DiaryEntry>>(
   (ref) => ref.watch(diaryRepositoryProvider).watchEntries(),
 );
 
-/// 시작 시 설정에서 언어를 불러온다.
+/// 시작 시 설정에서 언어와 답장 취향을 불러온다.
 final _startupProvider = FutureProvider<void>((ref) async {
-  final tag = await ref.watch(settingsRepositoryProvider).getLanguageTag();
+  final settings = ref.watch(settingsRepositoryProvider);
+  final tag = await settings.getLanguageTag();
   ref.read(languageTagProvider.notifier).state = tag;
+  ref.read(writingPrefsProvider.notifier).state =
+      await settings.getWritingPrefs();
 });
 
 /// 홈: 지난 일기 타임라인.

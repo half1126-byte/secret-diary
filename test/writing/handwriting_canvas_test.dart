@@ -32,6 +32,57 @@ void main() {
     expect(strokes.single.points.every((p) => p.pressure == 0.5), isTrue);
   });
 
+  testWidgets('빠르게 두 번 톡톡 치면 더블터치 신호가 온다', (tester) async {
+    final strokes = <DiaryStroke>[];
+    var doubleTaps = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HandwritingCanvas(
+            strokes: const [],
+            onStrokeEnd: strokes.add,
+            onDoubleTap: () => doubleTaps++,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tapAt(const Offset(200, 300));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(const Offset(205, 302));
+    await tester.pump();
+
+    expect(doubleTaps, 1);
+    // 첫 톡은 잉크(마침표 점)로 남고, 두 번째 톡은 신호로만 쓰인다.
+    expect(strokes, hasLength(1));
+  });
+
+  testWidgets('느리게 두 번 치면 그냥 점 두 개다', (tester) async {
+    final strokes = <DiaryStroke>[];
+    var doubleTaps = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HandwritingCanvas(
+            strokes: const [],
+            onStrokeEnd: strokes.add,
+            onDoubleTap: () => doubleTaps++,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tapAt(const Offset(200, 300));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tapAt(const Offset(205, 302));
+    await tester.pump();
+
+    expect(doubleTaps, 0);
+    expect(strokes, hasLength(2));
+  });
+
   testWidgets('두 번 그으면 획 두 개', (tester) async {
     final strokes = <DiaryStroke>[];
 

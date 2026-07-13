@@ -152,6 +152,34 @@ void main() {
     await TestEnv.unmount(tester);
   });
 
+  testWidgets('두 번 톡톡 치면 기다리지 않고 바로 전송된다', (tester) async {
+    final env = TestEnv(); // 키 없는 빌드 — 저장만 확인
+    addTearDown(env.dispose);
+    final repo = DiaryRepository(env.db);
+    final entry = await repo.createEntry(languageTag: 'ko');
+
+    await pumpWriting(tester, env, entryId: entry.id);
+
+    // 획을 긋고 인식이 끝난 뒤,
+    await tester.timedDrag(
+      find.byType(HandwritingCanvas),
+      const Offset(80, 30),
+      const Duration(milliseconds: 100),
+    );
+    await tester.pump(const Duration(milliseconds: 1300));
+
+    // 마침표 없이도 두 번 톡톡 = 바로 전송.
+    await tester.tapAt(tester.getCenter(find.byType(HandwritingCanvas)));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(tester.getCenter(find.byType(HandwritingCanvas)));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final messages = await repo.getMessages(entry.id);
+    expect(messages, hasLength(1));
+    expect(messages.single.text, '가짜 인식 결과');
+    await TestEnv.unmount(tester);
+  });
+
   testWidgets('AI 답장 대기 중 화면을 나가도 예외가 없다', (tester) async {
     final env = TestEnv(
       apiKey: 'test-key',

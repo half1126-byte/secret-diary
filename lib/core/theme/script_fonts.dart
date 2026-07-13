@@ -64,6 +64,55 @@ abstract final class ScriptFonts {
     }
   }
 
+  /// 답장 폰트로 고를 수 있는 무료 손글씨 폰트들 (키 → 표시 이름).
+  static const replyFontChoices = <String, String>{
+    'auto': '언어에 맞게 자동',
+    'nanumPenScript': '나눔 펜',
+    'gaegu': '개구체',
+    'hiMelody': '하이멜로디',
+    'eastSeaDokdo': '동해독도',
+    'yeonSung': '연성체',
+    'caveat': 'Caveat',
+    'shadowsIntoLight': 'Shadows Into Light',
+  };
+
+  /// [replyFontChoices]의 키로 폰트 스타일을 만든다. 모르는 키면 기본 폰트.
+  static TextStyle byName(String name, {TextStyle? base}) {
+    final b = base ?? const TextStyle();
+    try {
+      switch (name) {
+        case 'nanumPenScript':
+          return GoogleFonts.nanumPenScript(textStyle: b);
+        case 'gaegu':
+          return GoogleFonts.gaegu(textStyle: b);
+        case 'hiMelody':
+          return GoogleFonts.hiMelody(textStyle: b);
+        case 'eastSeaDokdo':
+          return GoogleFonts.eastSeaDokdo(textStyle: b);
+        case 'yeonSung':
+          return GoogleFonts.yeonSung(textStyle: b);
+        case 'caveat':
+          return GoogleFonts.caveat(textStyle: b);
+        case 'shadowsIntoLight':
+          return GoogleFonts.shadowsIntoLight(textStyle: b);
+        default:
+          return b;
+      }
+    } catch (_) {
+      return b;
+    }
+  }
+
+  /// 답장 스타일: 취향 폰트가 있으면 그걸, 아니면 언어에 맞는 폰트.
+  static TextStyle replyStyle(
+    String languageTag,
+    String replyFont, {
+    TextStyle? base,
+  }) {
+    if (replyFont == 'auto') return styleFor(languageTag, base: base);
+    return byName(replyFont, base: base);
+  }
+
   /// 손글씨 폰트가 대체로 작게 보이는 문제를 보정하는 배율.
   static double scaleFor(String languageTag) {
     final primary = languageTag.split('-').first.toLowerCase();

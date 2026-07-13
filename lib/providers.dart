@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/db/app_database.dart';
+import 'data/models/writing_prefs.dart';
 import 'data/repositories/diary_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'services/ai/gemini_client.dart';
@@ -46,3 +47,7 @@ final geminiClientProvider = Provider<GeminiClient>((ref) {
 /// 현재 쓰기 언어 (BCP-47). 시작 시 설정에서 불러온다.
 final languageTagProvider =
     StateProvider<String>((ref) => 'ko');
+
+/// 답장 연출·전송 취향. 시작 시 설정에서 불러오고, 설정 화면에서 갱신한다.
+final writingPrefsProvider =
+    StateProvider<WritingPrefs>((ref) => const WritingPrefs());

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -87,6 +88,13 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
     super.dispose();
   }
 
+  /// 더블터치 = "내 이야기는 여기까지" — 대기 없이 바로 보낸다.
+  void _sendNow() {
+    if (!_writing.hasInk && _writing.recognizedText.trim().isEmpty) return;
+    HapticFeedback.mediumImpact();
+    _send();
+  }
+
   Future<void> _send() async {
     final snapshot = _writing.takeSnapshot();
     if (snapshot == null) return;
@@ -115,15 +123,17 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
       return;
     }
 
-    // 3) 답장이 손글씨로 한 글자씩 써진다.
+    // 3) 답장이 손글씨로 한 글자씩 써진다 (속도는 취향 설정).
     final reply = _session.lastAiReply;
     if (reply != null && _writingMode) {
       setState(() {
         _fadingStrokes = null;
         _replyReveal = reply;
       });
+      final msPerChar = ref.read(writingPrefsProvider).revealMsPerChar;
       _revealController.duration = Duration(
-        milliseconds: (reply.characters.length * 60).clamp(900, 8000),
+        milliseconds:
+            (reply.characters.length * msPerChar).clamp(900, 15000),
       );
       _revealController.forward(from: 0);
     }
@@ -196,6 +206,9 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
   }
 
   Widget _buildCanvas() {
+    final prefs = ref.watch(writingPrefsProvider);
+    _writing.autoSendDelay = Duration(milliseconds: prefs.autoSendMs);
+
     return ListenableBuilder(
       key: const ValueKey('canvas'),
       listenable: Listenable.merge([_writing, _session]),
@@ -211,6 +224,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                 _writing.writingArea = constraints.biggest;
                 return HandwritingCanvas(
                   strokes: _writing.strokes,
+                  onDoubleTap: _sendNow,
                   onStrokeEnd: (stroke) {
                     // 새로 쓰기 시작하면 답장은 조용히 물러난다.
                     if (_replyReveal != null) {
@@ -254,10 +268,12 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                         child: Text(
                           chars.take(count).toString(),
                           textAlign: TextAlign.center,
-                          style: ScriptFonts.styleFor(
+                          style: ScriptFonts.replyStyle(
                             _languageTag,
+                            prefs.replyFont,
                             base: TextStyle(
                               fontSize: 22 *
+                                  prefs.replyScale *
                                   ScriptFonts.scaleFor(_languageTag) /
                                   1.2,
                               color: Palette.sage,
@@ -327,7 +343,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '문장 끝에 마침표(.)를 찍으면 답장이 와요',
+                        '마침표(.)를 찍거나 두 번 톡톡 치면 답장이 와요',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -355,11 +371,24 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                     style: Theme.of(context).textTheme.bodySmall),
               );
             }
+            final prefs = ref.watch(writingPrefsProvider);
             return ChatThread(
               messages: messages,
               languageTag: _languageTag,
               status: _session.status,
               lastError: _session.lastError,
+              aiTextStyle: ScriptFonts.replyStyle(
+                _languageTag,
+                prefs.replyFont,
+                base: TextStyle(
+                  fontSize: 19 *
+                      prefs.replyScale *
+                      ScriptFonts.scaleFor(_languageTag) /
+                      1.2,
+                  color: Palette.sage,
+                  height: 1.5,
+                ),
+              ),
               onRetry: _session.requestAiReply,
               onOpenSettings: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),

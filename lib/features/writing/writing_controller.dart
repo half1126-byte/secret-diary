@@ -24,8 +24,8 @@ class WritingController extends ChangeNotifier {
   final HandwritingRecognizer _recognizer;
   final Duration recognizeDebounce;
 
-  /// 마침표로 문장을 끝낸 뒤 자동 전송까지의 대기 시간.
-  final Duration autoSendDelay;
+  /// 마침표로 문장을 끝낸 뒤 자동 전송까지의 대기 시간 (설정에서 조절).
+  Duration autoSendDelay;
 
   /// 인식된 글이 마침표로 끝나고 [autoSendDelay]만큼 손이 멈추면 호출된다.
   /// 영상 속 "마침표를 찍으면 잉크가 스며들며 답장이 오는" 흐름의 트리거.
