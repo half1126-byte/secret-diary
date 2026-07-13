@@ -2,10 +2,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:secret_diary/data/db/app_database.dart';
 import 'package:secret_diary/data/repositories/settings_repository.dart';
 import 'package:secret_diary/providers.dart';
@@ -14,8 +12,6 @@ import 'package:secret_diary/services/handwriting/fake_recognizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-class MockSecureStorage extends Mock implements FlutterSecureStorage {}
 
 /// 플랫폼 채널 오류(플러그인 부재 등)를 흉내내는 인식기.
 class ThrowingRecognizer extends FakeRecognizer {
@@ -44,18 +40,10 @@ class TestEnv {
 
     db = AppDatabase.withExecutor(NativeDatabase.memory());
 
-    secureStorage = MockSecureStorage();
-    when(() => secureStorage.read(key: any(named: 'key')))
-        .thenAnswer((_) async => apiKey);
-    when(() => secureStorage.write(
-        key: any(named: 'key'),
-        value: any(named: 'value'))).thenAnswer((_) async {});
-    when(() => secureStorage.delete(key: any(named: 'key')))
-        .thenAnswer((_) async {});
-
     settings = SettingsRepository(
-      secureStorage: secureStorage,
       prefs: SharedPreferencesAsync(),
+      // 빌드 내장 키를 테스트에서 흉내낸다 (빈 문자열 = 키 없는 빌드).
+      apiKeyOverride: apiKey ?? '',
     );
 
     this.recognizer = recognizer ?? FakeRecognizer(result: '가짜 인식 결과');
@@ -67,7 +55,6 @@ class TestEnv {
   }
 
   late final AppDatabase db;
-  late final MockSecureStorage secureStorage;
   late final SettingsRepository settings;
   late final FakeRecognizer recognizer;
   late final GeminiClient gemini;

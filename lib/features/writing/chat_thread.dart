@@ -224,9 +224,9 @@ class _NoKeyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SoftCard(
-      icon: Icons.vpn_key_outlined,
-      message: '무료 Gemini 키를 연결하면\n일기에 답장을 받을 수 있어요.',
-      actionLabel: '키 연결하기',
+      icon: Icons.auto_awesome_outlined,
+      message: '이 빌드에는 AI 일기 친구가\n아직 준비되지 않았어요.',
+      actionLabel: '설정 보기',
       onAction: onOpenSettings,
     );
   }

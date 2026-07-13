@@ -1,35 +1,35 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 앱 설정 저장소.
 ///
-/// Gemini API 키는 보안 저장소(Keychain/Keystore)에,
-/// 나머지 가벼운 설정은 SharedPreferences에 둔다.
+/// Gemini API 키는 앱을 빌드하는 사람(제작자)이 빌드 시점에 내장한다:
+/// `flutter build apk --dart-define=GEMINI_API_KEY=발급받은키`
+/// 사용자에게는 키가 보이지 않고, 입력할 필요도 없다.
 class SettingsRepository {
   SettingsRepository({
-    FlutterSecureStorage? secureStorage,
     required SharedPreferencesAsync prefs,
-  })  : _secure = secureStorage ?? const FlutterSecureStorage(),
-        _prefs = prefs; // ignore: prefer_initializing_formals
+    String? apiKeyOverride,
+  })  : _prefs = prefs, // ignore: prefer_initializing_formals
+        _apiKey = apiKeyOverride ?? _embeddedKey;
 
-  final FlutterSecureStorage _secure;
   final SharedPreferencesAsync _prefs;
+  final String _apiKey;
 
-  static const _keyApiKey = 'gemini_api_key';
+  /// 빌드 시 --dart-define으로 주입되는 내장 키.
+  static const _embeddedKey = String.fromEnvironment('GEMINI_API_KEY');
+
   static const _keyLanguage = 'writing_language';
   static const _keyModel = 'gemini_model';
 
   static const defaultModel = 'gemini-2.5-flash';
 
-  Future<String?> getGeminiApiKey() => _secure.read(key: _keyApiKey);
+  /// 내장 키. 없으면 null (AI 답장 비활성 빌드).
+  Future<String?> getGeminiApiKey() async =>
+      _apiKey.trim().isEmpty ? null : _apiKey.trim();
 
-  Future<void> setGeminiApiKey(String? value) async {
-    if (value == null || value.trim().isEmpty) {
-      await _secure.delete(key: _keyApiKey);
-    } else {
-      await _secure.write(key: _keyApiKey, value: value.trim());
-    }
-  }
+  /// AI 답장이 가능한 빌드인지.
+  Future<bool> hasGeminiApiKey() async =>
+      (await getGeminiApiKey()) != null;
 
   Future<String> getLanguageTag({String fallback = 'ko'}) async =>
       await _prefs.getString(_keyLanguage) ?? fallback;

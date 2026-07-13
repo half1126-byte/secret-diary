@@ -16,8 +16,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _keyController = TextEditingController();
-  bool _keySaved = false;
+  bool _aiReady = false;
   bool _testing = false;
   String _model = 'gemini-2.5-flash';
   List<String> _downloadedModels = const [];
@@ -43,33 +42,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
     if (!mounted) return;
     setState(() {
-      _keySaved = key != null && key.isNotEmpty;
+      _aiReady = key != null && key.isNotEmpty;
       _model = _models.contains(model) ? model : _models.first;
       _downloadedModels = downloaded;
     });
-  }
-
-  @override
-  void dispose() {
-    _keyController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveKey() async {
-    final text = _keyController.text.trim();
-    if (text.isEmpty) return;
-    await ref.read(settingsRepositoryProvider).setGeminiApiKey(text);
-    _keyController.clear();
-    if (!mounted) return;
-    setState(() => _keySaved = true);
-    _showSnack('키를 안전하게 저장했어요.');
-  }
-
-  Future<void> _deleteKey() async {
-    await ref.read(settingsRepositoryProvider).setGeminiApiKey(null);
-    if (!mounted) return;
-    setState(() => _keySaved = false);
-    _showSnack('키를 지웠어요.');
   }
 
   Future<void> _testConnection() async {
@@ -84,8 +60,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _showSnack('연결 성공! 이제 일기에 답장이 와요.');
     } on GeminiException catch (e) {
       _showSnack(switch (e.type) {
-        GeminiErrorType.noApiKey => '먼저 키를 저장해 주세요.',
-        GeminiErrorType.invalidApiKey => '키가 올바르지 않아요. 다시 확인해 주세요.',
+        GeminiErrorType.noApiKey => '이 빌드에는 AI가 준비되지 않았어요.',
+        GeminiErrorType.invalidApiKey => 'AI 연결에 문제가 있어요. 앱 제작자에게 알려주세요.',
         GeminiErrorType.rateLimited => '지금은 한도에 걸렸어요. 잠시 후 다시 시도해 주세요.',
         _ => '연결하지 못했어요. 네트워크를 확인해 주세요.',
       });
@@ -110,7 +86,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            _sectionTitle('AI 답장 (무료)'),
+            _sectionTitle('AI 답장'),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -120,64 +96,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Row(
                       children: [
                         Icon(
-                          _keySaved ? Icons.check_circle : Icons.vpn_key_outlined,
+                          _aiReady
+                              ? Icons.auto_awesome
+                              : Icons.hourglass_empty,
                           size: 18,
-                          color: _keySaved ? Palette.sage : Palette.inkFaded,
+                          color: _aiReady ? Palette.sage : Palette.inkFaded,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          _keySaved ? 'Gemini 키가 연결되어 있어요' : 'Gemini 키가 아직 없어요',
-                          style: theme.textTheme.titleSmall,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _keyController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        hintText: '무료 API 키 붙여넣기',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                              backgroundColor: Palette.terracotta),
-                          onPressed: _saveKey,
-                          child: const Text('저장'),
-                        ),
-                        OutlinedButton(
-                          onPressed: _keySaved && !_testing ? _testConnection : null,
-                          child: Text(_testing ? '확인 중…' : '연결 테스트'),
-                        ),
-                        if (_keySaved)
-                          TextButton(
-                            onPressed: _deleteKey,
-                            child: const Text('키 지우기'),
+                        Expanded(
+                          child: Text(
+                            _aiReady
+                                ? '일기 친구가 함께하고 있어요'
+                                : '이 빌드에는 AI가 준비되지 않았어요',
+                            style: theme.textTheme.titleSmall,
                           ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      shape: const Border(),
-                      title: Text('무료 키 발급 방법', style: theme.textTheme.bodyMedium),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            '1. aistudio.google.com/apikey 에 접속해요.\n'
-                            '2. 구글 계정으로 로그인하고 "API 키 만들기"를 눌러요.\n'
-                            '3. 만들어진 키를 복사해 위에 붙여넣으면 끝!\n\n'
-                            '무료 등급으로 하루 수백 번의 답장을 받을 수 있고, 결제 정보는 필요 없어요.',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      _aiReady
+                          ? '일기 끝에 마침표(.)를 찍으면 답장이 와요.'
+                          : '앱을 빌드할 때 AI 키가 내장되지 않았어요.',
+                      style: theme.textTheme.bodySmall,
                     ),
+                    if (_aiReady) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: !_testing ? _testConnection : null,
+                        child: Text(_testing ? '확인 중…' : '연결 테스트'),
+                      ),
+                    ],
                   ],
                 ),
               ),
