@@ -247,7 +247,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: TextButton(
                 onPressed: () => showLicensePage(
                   context: context,
-                  applicationName: '비밀 일기',
+                  applicationName: 'Re:Me',
                 ),
                 child: Text('오픈소스 라이선스',
                     style: theme.textTheme.bodySmall),

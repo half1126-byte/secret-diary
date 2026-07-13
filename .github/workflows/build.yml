@@ -91,9 +91,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: 비밀 일기 빌드 build-${{ github.run_number }}
+          name: "Re:Me 빌드 build-${{ github.run_number }}"
           body: |
-            ✍️ 비밀 일기 자동 빌드입니다.
+            ✍️ Re:Me — 일기를 쓰면, 답장이 와요.
             - `secret-diary.apk` — Android 폰에서 바로 설치
             - `secret-diary.ipa` — iPhone은 PC의 Sideloadly로 설치
           files: |

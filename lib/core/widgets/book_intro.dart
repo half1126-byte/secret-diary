@@ -273,6 +273,25 @@ class _LeatherCoverPainter extends CustomPainter {
         Rect.fromLTWH(0, 0, 10, size.height),
         Paint()..color = const Color(0x40200F05),
       );
+      // 표지에 눌러 새긴 앱 이름.
+      final title = TextPainter(
+        text: TextSpan(
+          text: 'Re:Me',
+          style: ScriptFonts.byName(
+            'caveat',
+            base: TextStyle(
+              fontSize: size.width * 0.17,
+              fontWeight: FontWeight.bold,
+              color: const Color(0x66240F04),
+            ),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      title.paint(
+        canvas,
+        Offset((size.width - title.width) / 2, size.height * 0.17),
+      );
     }
   }
 

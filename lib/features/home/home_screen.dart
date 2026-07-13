@@ -96,10 +96,10 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          '비밀 일기',
+          'Re:Me',
           style: ScriptFonts.styleFor(
-            'ko',
-            base: const TextStyle(fontSize: 30, color: Palette.ink),
+            'en',
+            base: const TextStyle(fontSize: 32, color: Palette.ink),
           ),
         ),
         actions: [

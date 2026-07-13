@@ -2,7 +2,7 @@
     <!-- Gemini API 호출 및 ML Kit 언어 모델 다운로드용 -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="비밀 일기"
+        android:label="Re:Me"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

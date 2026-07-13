@@ -18,7 +18,7 @@ void main() {
     ));
     await tester.pump();
 
-    expect(find.text('비밀 일기'), findsOneWidget);
+    expect(find.text('Re:Me'), findsOneWidget);
     await TestEnv.unmount(tester);
   });
 }

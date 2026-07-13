@@ -13,7 +13,7 @@ class SecretDiaryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '비밀 일기',
+      title: 'Re:Me',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: _Root(showIntro: showIntro),
