@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -112,15 +113,19 @@ class DiaryRepository {
       for (final m in messages)
         EntrySnippet(
           date: DateTime.fromMillisecondsSinceEpoch(m.createdAt),
-          text: m.body.length > 200 ? m.body.substring(0, 200) : m.body,
+          text: _truncate(m.body, 200),
         ),
     ];
   }
 
-  static String _titleFrom(String text) {
-    final line = text.split('\n').first.trim();
-    return line.length > 30 ? line.substring(0, 30) : line;
-  }
+  static String _titleFrom(String text) =>
+      _truncate(text.split('\n').first.trim(), 30);
+
+  /// 이모지(서로게이트 페어)를 반으로 자르지 않도록 grapheme 단위로 자른다.
+  static String _truncate(String text, int max) =>
+      text.characters.length > max
+          ? text.characters.take(max).toString()
+          : text;
 
   static DiaryEntry _toEntry(Entry row) => DiaryEntry(
         id: row.id,

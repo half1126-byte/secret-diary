@@ -63,6 +63,19 @@ void main() {
     expect(messages[1].strokes, isNull);
   });
 
+  test('제목이 이모지를 반으로 자르지 않는다', () async {
+    final entry = await repo.createEntry(languageTag: 'ko');
+    // 30번째 문자 경계에 서로게이트 페어(이모지)가 걸리는 텍스트.
+    final text = '가' * 29 + '😊나머지 텍스트';
+    await repo.appendMessage(
+        entryId: entry.id, role: MessageRole.user, text: text);
+
+    final saved = await repo.getEntry(entry.id);
+    expect(saved!.title, '가' * 29 + '😊');
+    // 잘린 제목에 깨진 서로게이트가 없어야 한다.
+    expect(saved.title!.codeUnits.last, isNot(inInclusiveRange(0xD800, 0xDBFF)));
+  });
+
   test('두 번째 사용자 메시지는 제목을 덮어쓰지 않는다', () async {
     final entry = await repo.createEntry(languageTag: 'en');
     await repo.appendMessage(

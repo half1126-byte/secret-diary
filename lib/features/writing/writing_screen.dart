@@ -276,6 +276,14 @@ class _WritingScreenState extends ConsumerState<WritingScreen> {
 
   Future<void> _editRecognizedText() async {
     final controller = TextEditingController(text: _writing.recognizedText);
+    try {
+      await _showEditDialog(controller);
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _showEditDialog(TextEditingController controller) async {
     final edited = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(

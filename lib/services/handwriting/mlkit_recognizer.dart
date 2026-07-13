@@ -108,12 +108,19 @@ class MlKitRecognizer implements HandwritingRecognizer {
 
   @override
   Future<List<String>> downloadedModels() async {
-    // ML Kit에는 목록 API가 없어 지원 언어를 하나씩 조회한다.
-    final result = <String>[];
-    for (final tag in ScriptFonts.supportedLanguages.keys) {
-      if (await _modelManager.isModelDownloaded(tag)) result.add(tag);
-    }
-    return result;
+    // ML Kit에는 목록 API가 없어 지원 언어를 하나씩 조회한다 (병렬).
+    final tags = ScriptFonts.supportedLanguages.keys.toList();
+    final checks = await Future.wait(tags.map((tag) async {
+      try {
+        return await _modelManager.isModelDownloaded(tag);
+      } catch (_) {
+        return false;
+      }
+    }));
+    return [
+      for (var i = 0; i < tags.length; i++)
+        if (checks[i]) tags[i],
+    ];
   }
 
   @override

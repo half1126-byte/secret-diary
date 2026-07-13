@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+  characters: ^1.4.0
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
   google_mlkit_digital_ink_recognition: ^0.14.1

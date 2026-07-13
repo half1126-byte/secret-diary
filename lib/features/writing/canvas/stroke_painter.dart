@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 
@@ -85,12 +87,13 @@ class StrokesPainter extends CustomPainter {
     final paint = Paint()..color = color;
 
     if (fit) {
+      final availW = size.width - padding * 2;
+      final availH = size.height - padding * 2;
+      if (availW <= 0 || availH <= 0) return;
       final box = StrokeCodec.boundingBox(strokes);
-      if (box.isEmpty && box.width == 0 && box.height == 0) return;
       final w = box.width == 0 ? 1.0 : box.width;
       final h = box.height == 0 ? 1.0 : box.height;
-      final scale = ((size.width - padding * 2) / w)
-          .clamp(0.0, (size.height - padding * 2) / h);
+      final scale = math.min(availW / w, availH / h);
       final dx = (size.width - w * scale) / 2 - box.left * scale;
       final dy = (size.height - h * scale) / 2 - box.top * scale;
       canvas.translate(dx, dy);
