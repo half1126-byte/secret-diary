@@ -40,6 +40,12 @@ void main() {
     expect(loaded.autoSendMs, 3000);
   });
 
+  test('페르소나 저장·복원', () async {
+    expect(await repo.getPersona(), 'warm');
+    await repo.setPersona('tsundere');
+    expect(await repo.getPersona(), 'tsundere');
+  });
+
   test('빈 키는 AI 미준비로 취급', () async {
     expect(await repo.getGeminiApiKey(), isNull);
     expect(await repo.hasGeminiApiKey(), isFalse);

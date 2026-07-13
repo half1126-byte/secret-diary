@@ -35,6 +35,18 @@ void main() {
     expect(prompt.turns[3].role, 'model');
   });
 
+  test('페르소나가 시스템 프롬프트에 덧붙는다', () {
+    final prompt = PromptBuilder.build(
+      snippets: [],
+      messages: [msg('안녕')],
+      persona: PromptBuilder.personaPromptOf('poet'),
+    );
+    expect(prompt.systemInstruction, contains('poet'));
+    expect(prompt.systemInstruction, contains('same language'));
+    // 모르는 id는 기본(빈 프롬프트)으로.
+    expect(PromptBuilder.personaPromptOf('없는성격'), isEmpty);
+  });
+
   test('기억이 없으면 대화만 담긴다', () {
     final prompt = PromptBuilder.build(snippets: [], messages: [msg('안녕')]);
     expect(prompt.turns, hasLength(1));

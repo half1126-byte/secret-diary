@@ -45,6 +45,14 @@ class SettingsRepository {
 
   Future<void> setModel(String model) => _prefs.setString(_keyModel, model);
 
+  static const _keyPersona = 'reply_persona';
+
+  /// 일기 친구 성격 (PromptBuilder.personas의 키).
+  Future<String> getPersona() async =>
+      await _prefs.getString(_keyPersona) ?? 'warm';
+
+  Future<void> setPersona(String id) => _prefs.setString(_keyPersona, id);
+
   static const _keyReplyFont = 'reply_font';
   static const _keyReplyScale = 'reply_scale';
   static const _keyRevealMs = 'reveal_ms_per_char';

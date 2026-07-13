@@ -130,10 +130,12 @@ class EntrySession extends ChangeNotifier {
           .take(5)
           .toList();
 
+      final characterPersona =
+          PromptBuilder.personaPromptOf(await _settings.getPersona());
       final prompt = PromptBuilder.build(
         snippets: memory,
         messages: messages,
-        persona: _persona,
+        persona: characterPersona + _persona,
       );
       final reply = await _gemini.generateReply(
         apiKey: apiKey,

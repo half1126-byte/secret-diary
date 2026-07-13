@@ -8,6 +8,7 @@ import '../../data/models/writing_prefs.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../providers.dart';
 import '../../services/ai/gemini_client.dart';
+import '../../services/ai/prompt_builder.dart';
 import 'language_model_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -166,6 +167,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            _sectionTitle('일기 친구 성격'),
+            const _PersonaCard(),
+            const SizedBox(height: 24),
             _sectionTitle('답장 스타일'),
             _ReplyStyleCard(),
             const SizedBox(height: 24),
@@ -263,6 +267,69 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 .titleSmall
                 ?.copyWith(color: Palette.inkFaded)),
       );
+}
+
+/// 일기 친구 성격 선택 카드.
+class _PersonaCard extends ConsumerStatefulWidget {
+  const _PersonaCard();
+
+  @override
+  ConsumerState<_PersonaCard> createState() => _PersonaCardState();
+}
+
+class _PersonaCardState extends ConsumerState<_PersonaCard> {
+  String _selected = 'warm';
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(settingsRepositoryProvider).getPersona().then((id) {
+      if (mounted) setState(() => _selected = id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final current =
+        PromptBuilder.personas[_selected] ?? PromptBuilder.personas['warm']!;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final entry in PromptBuilder.personas.entries)
+                  ChoiceChip(
+                    label: Text(entry.value.label),
+                    selected: _selected == entry.key,
+                    selectedColor: Palette.terracotta,
+                    labelStyle: TextStyle(
+                      color: _selected == entry.key
+                          ? Colors.white
+                          : Palette.ink,
+                    ),
+                    onSelected: (_) async {
+                      setState(() => _selected = entry.key);
+                      await ref
+                          .read(settingsRepositoryProvider)
+                          .setPersona(entry.key);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(current.desc, style: theme.textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 답장 폰트·크기·속도·전송 대기 조절 카드 (실시간 미리보기 포함).
