@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 /// 앱 전체에서 쓰는 따뜻한 종이·잉크 팔레트.
 abstract final class Palette {
-  /// 크림색 종이 배경.
-  static const cream = Color(0xFFFAF3E7);
+  /// 낡은 양피지 종이 배경 (세월이 밴 메모지 느낌).
+  static const cream = Color(0xFFF3E6C6);
 
   /// 살짝 어두운 종이 (카드, 시트 배경).
-  static const creamDark = Color(0xFFF2E8D8);
+  static const creamDark = Color(0xFFE9D9B3);
 
   /// 만년필 잉크색 — 기본 텍스트와 손글씨 획.
   static const ink = Color(0xFF3B362E);
@@ -23,9 +23,18 @@ abstract final class Palette {
   /// 황혼 보라 — 무드 포인트.
   static const dusk = Color(0xFF6B5B73);
 
-  /// 종이 위 흐린 괘선 색.
-  static const ruleLine = Color(0x143B362E);
+  /// 종이 위 흐린 괘선 색 (바랜 갈색 잉크).
+  static const ruleLine = Color(0x1F6B5537);
 
   /// 종이 질감 반점 색.
-  static const speckle = Color(0x0A3B362E);
+  static const speckle = Color(0x0F6B4F2A);
+
+  /// 세월의 얼룩 (커피 자국처럼 은은한 갈색).
+  static const stain = Color(0x0A6B4A26);
+
+  /// 종이 섬유 결.
+  static const fiber = Color(0x0D8A7350);
+
+  /// 가장자리 그늘 (비네트).
+  static const vignette = Color(0x2E6B4A26);
 }

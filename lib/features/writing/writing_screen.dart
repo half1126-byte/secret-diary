@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +43,9 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
 
   /// 전송 직후 종이에 스며들며 사라지는 잉크.
   List<DiaryStroke>? _fadingStrokes;
+
+  /// 획별 디졸브 시작 지연 (랜덤 순서로 번지게).
+  List<double> _fadeDelays = const [];
   late final AnimationController _fadeController;
 
   /// 캔버스 위에 손글씨로 써지는 AI 답장.
@@ -53,7 +58,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
     // dispose에서 late 초기화가 일어나지 않도록 여기서 즉시 만든다.
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 2000),
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed && mounted) {
           setState(() => _fadingStrokes = null);
@@ -100,10 +105,14 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
     if (snapshot == null) return;
     _sentText = '$_sentText ${snapshot.text}'.trim();
 
-    // 1) 방금 쓴 잉크가 종이에 스며들 듯 사라진다.
+    // 1) 방금 쓴 잉크가 획 하나씩, 랜덤한 순서로 번지며 스며든다.
+    final random = Random();
     setState(() {
       _replyReveal = null;
       _fadingStrokes = snapshot.strokes;
+      _fadeDelays = [
+        for (final _ in snapshot.strokes) random.nextDouble() * 0.55,
+      ];
     });
     _fadeController.forward(from: 0);
 
@@ -235,19 +244,18 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                 );
               },
             ),
-            // 전송된 잉크가 종이에 스며들며 사라지는 레이어.
+            // 전송된 잉크가 획 단위로 번지며 스며드는 레이어.
             if (_fadingStrokes != null)
               IgnorePointer(
                 child: AnimatedBuilder(
                   animation: _fadeController,
-                  builder: (context, _) => Opacity(
-                    opacity: 1 - Curves.easeIn.transform(_fadeController.value),
-                    child: CustomPaint(
-                      size: Size.infinite,
-                      painter: StrokesPainter(
-                        strokes: _fadingStrokes!,
-                        color: Palette.ink,
-                      ),
+                  builder: (context, _) => CustomPaint(
+                    size: Size.infinite,
+                    painter: DissolvingStrokesPainter(
+                      strokes: _fadingStrokes!,
+                      delays: _fadeDelays,
+                      progress: _fadeController.value,
+                      color: Palette.ink,
                     ),
                   ),
                 ),
@@ -405,6 +413,10 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
       listenable: _writing,
       builder: (context, _) {
         final text = _writing.recognizedText;
+        // 쓴 게 없을 때는 완전히 숨긴다 — 빈 종이의 감성을 지키기 위해.
+        if (!_writing.hasInk && text.isEmpty) {
+          return const SizedBox.shrink();
+        }
         return Container(
           padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
           decoration: const BoxDecoration(
@@ -414,24 +426,17 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
           child: Row(
             children: [
               Expanded(
-                child: _writing.recognizing
-                    ? Text('읽는 중…',
-                        style: Theme.of(context).textTheme.bodySmall)
-                    : GestureDetector(
-                        onTap: text.isEmpty ? null : _editRecognizedText,
-                        child: Text(
-                          text.isEmpty
-                              ? (_writing.hasInk
-                                  ? '손글씨를 읽고 있어요'
-                                  : '쓰면 여기에 글자가 나타나요')
-                              : text,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.isEmpty
-                              ? Theme.of(context).textTheme.bodySmall
-                              : Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
+                child: GestureDetector(
+                  onTap: text.isEmpty ? null : _editRecognizedText,
+                  child: Text(
+                    text.isEmpty ? '…' : text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.isEmpty
+                        ? Theme.of(context).textTheme.bodySmall
+                        : Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
               ),
               IconButton(
                 tooltip: '보내기',

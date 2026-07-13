@@ -62,6 +62,55 @@ Path strokeToPath(
   return path;
 }
 
+/// 전송된 잉크가 획 하나하나 번지며 종이에 스며드는 페인터.
+///
+/// 각 획은 [delays]의 자기 몫만큼 기다렸다가, 흐려지고(blur) 옅어지며
+/// 사라진다 — 잉크가 종이에 배어드는 느낌.
+class DissolvingStrokesPainter extends CustomPainter {
+  DissolvingStrokesPainter({
+    required this.strokes,
+    required this.delays,
+    required this.progress,
+    required this.color,
+    this.strokeSize = 4.5,
+  });
+
+  final List<DiaryStroke> strokes;
+
+  /// 획별 시작 지연 (0~1 진행률 기준). strokes와 길이가 같아야 한다.
+  final List<double> delays;
+
+  /// 전체 진행률 0~1.
+  final double progress;
+
+  final Color color;
+  final double strokeSize;
+
+  /// 각 획이 사라지는 데 쓰는 구간 길이.
+  static const _span = 0.45;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < strokes.length; i++) {
+      final delay = i < delays.length ? delays[i] : 0.0;
+      final local = ((progress - delay) / _span).clamp(0.0, 1.0);
+      if (local >= 1.0) continue; // 이미 스며들었다.
+      final eased = Curves.easeIn.transform(local);
+      final paint = Paint()..color = color.withValues(alpha: 1.0 - eased);
+      if (eased > 0) {
+        // 번짐: 사라질수록 잉크가 퍼진다.
+        paint.maskFilter =
+            MaskFilter.blur(BlurStyle.normal, 0.5 + eased * 7);
+      }
+      canvas.drawPath(strokeToPath(strokes[i], size: strokeSize), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(DissolvingStrokesPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.strokes != strokes;
+}
+
 /// 여러 획을 그리는 페인터. 캔버스와 썸네일 양쪽에서 재사용한다.
 class StrokesPainter extends CustomPainter {
   StrokesPainter({
