@@ -5,6 +5,7 @@ import '../../core/theme/palette.dart';
 import '../../core/theme/script_fonts.dart';
 import '../../core/widgets/paper_background.dart';
 import '../../data/models/writing_prefs.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../providers.dart';
 import '../../services/ai/gemini_client.dart';
 import 'language_model_sheet.dart';
@@ -19,10 +20,14 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _aiReady = false;
   bool _testing = false;
-  String _model = 'gemini-2.5-flash';
+  String _model = SettingsRepository.defaultModel;
   List<String> _downloadedModels = const [];
 
-  static const _models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  static const _models = [
+    'gemini-flash-lite-latest',
+    'gemini-flash-latest',
+    'gemini-3.1-flash-lite',
+  ];
 
   @override
   void initState() {

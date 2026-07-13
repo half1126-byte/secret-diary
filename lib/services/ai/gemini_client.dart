@@ -66,7 +66,8 @@ class GeminiClient {
       ],
       'generationConfig': {
         'temperature': 0.9,
-        'maxOutputTokens': 1024,
+        // 최신 모델은 내부 사고(thinking) 토큰도 이 한도에 포함될 수 있어 여유 있게.
+        'maxOutputTokens': 2048,
       },
     });
 

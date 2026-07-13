@@ -23,7 +23,9 @@ class SettingsRepository {
   static const _keyLanguage = 'writing_language';
   static const _keyModel = 'gemini_model';
 
-  static const defaultModel = 'gemini-2.5-flash';
+  /// 'latest' 별칭이라 구글이 모델을 세대교체해도 계속 동작한다.
+  /// (고정 모델명은 신규 사용자에게 제공 종료되며 404가 났음)
+  static const defaultModel = 'gemini-flash-lite-latest';
 
   /// 내장 키. 없으면 null (AI 답장 비활성 빌드).
   Future<String?> getGeminiApiKey() async =>
