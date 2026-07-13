@@ -23,6 +23,11 @@ android {
         versionName = flutter.versionName
     }
 
+    // 최신 AGP는 resValues가 기본 꺼져 있어 flavor별 app_name 정의에 필요.
+    buildFeatures {
+        resValues = true
+    }
+
     // 한 저장소에서 두 앱: Re:Me(일기)와 팩폭상담소(채팅 코치).
     // 앱 ID가 달라 폰에 나란히 설치된다.
     flavorDimensions += "app"
