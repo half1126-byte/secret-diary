@@ -238,7 +238,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                   ),
                 ),
               ),
-            // AI 답장이 손글씨로 한 글자씩 써지는 레이어.
+            // AI 답장이 화면 가운데에서 손글씨로 한 글자씩 피어나는 레이어.
             if (_replyReveal != null)
               IgnorePointer(
                 child: AnimatedBuilder(
@@ -247,17 +247,22 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                     final chars = _replyReveal!.characters;
                     final count =
                         (chars.length * _revealController.value).round();
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 64, 28, 120),
-                      child: Text(
-                        chars.take(count).toString(),
-                        style: ScriptFonts.styleFor(
-                          _languageTag,
-                          base: TextStyle(
-                            fontSize:
-                                22 * ScriptFonts.scaleFor(_languageTag) / 1.2,
-                            color: Palette.sage,
-                            height: 1.9,
+                    return Center(
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          chars.take(count).toString(),
+                          textAlign: TextAlign.center,
+                          style: ScriptFonts.styleFor(
+                            _languageTag,
+                            base: TextStyle(
+                              fontSize: 22 *
+                                  ScriptFonts.scaleFor(_languageTag) /
+                                  1.2,
+                              color: Palette.sage,
+                              height: 1.9,
+                            ),
                           ),
                         ),
                       ),
