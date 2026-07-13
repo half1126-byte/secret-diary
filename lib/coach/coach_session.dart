@@ -82,7 +82,10 @@ class CoachSession extends ChangeNotifier {
       final reply = await _gemini.generateReply(
         apiKey: apiKey,
         model: await _settings.getModel(),
-        prompt: CoachPrompt.build(messages),
+        prompt: CoachPrompt.build(
+          messages,
+          heat: await _settings.getCoachHeat(),
+        ),
       );
       await _repository.appendMessage(
         entryId: _entry!.id,

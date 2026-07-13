@@ -5,7 +5,17 @@ import '../data/models/chat_message.dart';
 import '../providers.dart';
 import '../services/ai/gemini_client.dart';
 import 'coach_app.dart';
+import 'coach_prompt.dart';
 import 'coach_session.dart';
+import 'coach_share_card.dart';
+
+/// AI 답변 첫 줄의 [핑계지수 NN%] 태그를 분리한다.
+({int? score, String body}) splitExcuseScore(String text) {
+  final match = RegExp(r'^\[핑계지수\s*(\d{1,3})%?\]\s*').firstMatch(text);
+  if (match == null) return (score: null, body: text);
+  final score = int.parse(match.group(1)!).clamp(0, 100);
+  return (score: score, body: text.substring(match.end).trimLeft());
+}
 
 /// 팩폭상담소 — 단일 채팅 화면.
 class CoachScreen extends ConsumerStatefulWidget {
@@ -19,6 +29,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   late final CoachSession _session;
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  String _heat = 'spicy';
 
   @override
   void initState() {
@@ -28,6 +39,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       settings: ref.read(settingsRepositoryProvider),
       gemini: ref.read(geminiClientProvider),
     )..init();
+    ref.read(settingsRepositoryProvider).getCoachHeat().then((heat) {
+      if (mounted) setState(() => _heat = heat);
+    });
   }
 
   @override
@@ -66,11 +80,32 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
           ],
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Text('실행이 답이다',
-                  style: theme.textTheme.bodySmall),
+          // 팩폭 강도 조절 — 순한맛 / 매운맛 / 불닭맛.
+          PopupMenuButton<String>(
+            tooltip: '팩폭 강도',
+            color: CoachColors.surface,
+            onSelected: (heat) async {
+              setState(() => _heat = heat);
+              await ref.read(settingsRepositoryProvider).setCoachHeat(heat);
+            },
+            itemBuilder: (context) => [
+              for (final entry in CoachPrompt.heats.entries)
+                PopupMenuItem(
+                  value: entry.key,
+                  child: Text(
+                    '${entry.key == _heat ? '✓ ' : ''}🌶 ${entry.value.label}',
+                    style: const TextStyle(color: CoachColors.text),
+                  ),
+                ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: Text(
+                  '🌶 ${CoachPrompt.heats[_heat]?.label ?? '매운맛'}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
             ),
           ),
         ],
@@ -113,7 +148,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                                   isUser: m.role == MessageRole.user,
                                 ),
                               if (_session.status == CoachStatus.thinking)
-                                const _Bubble(text: '…', isUser: false),
+                                const _Bubble(text: '핑계 스캔 중…', isUser: false),
                               if (_session.status == CoachStatus.failed)
                                 _ErrorBubble(
                                   error: _session.lastError,
@@ -131,6 +166,35 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                             );
                           },
                         ),
+                ),
+                // 찔리는 퀵리플 — 탭 한 번으로 팩폭 유도.
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    children: [
+                      for (final chip in const [
+                        '인증한다. 했다.',
+                        '핑계 대자면...',
+                        '내일부터 진짜 한다',
+                        '3분만 쉬고',
+                        '반박 가능?',
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ActionChip(
+                            label: Text(chip,
+                                style: const TextStyle(
+                                    color: CoachColors.text, fontSize: 13)),
+                            backgroundColor: CoachColors.surface,
+                            side: const BorderSide(
+                                color: CoachColors.surfaceLight),
+                            onPressed: () => _session.send(chip),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.fromLTRB(12, 8, 8, 10),
@@ -179,29 +243,82 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final parsed =
+        isUser ? (score: null, body: text) : splitExcuseScore(text);
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-        ),
-        decoration: BoxDecoration(
-          color: isUser ? CoachColors.accent : CoachColors.surface,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: Radius.circular(isUser ? 12 : 3),
-            bottomRight: Radius.circular(isUser ? 3 : 12),
+      child: GestureDetector(
+        // AI 답변 꾹 누르면 공유용 팩폭 카드.
+        onLongPress: isUser
+            ? null
+            : () => showShareCard(
+                  context,
+                  quote: parsed.body,
+                  excuseScore: parsed.score,
+                ),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+          ),
+          decoration: BoxDecoration(
+            color: isUser ? CoachColors.accent : CoachColors.surface,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(12),
+              topRight: const Radius.circular(12),
+              bottomLeft: Radius.circular(isUser ? 12 : 3),
+              bottomRight: Radius.circular(isUser ? 3 : 12),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (parsed.score != null) ...[
+                _ExcuseMeter(score: parsed.score!),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                parsed.body,
+                style: TextStyle(
+                  color: isUser ? Colors.white : CoachColors.text,
+                  fontSize: 15.5,
+                  height: 1.45,
+                ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 말풍선 안 핑계지수 도장.
+class _ExcuseMeter extends StatelessWidget {
+  const _ExcuseMeter({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: -0.05,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          border: Border.all(color: CoachColors.accent, width: 1.6),
+          borderRadius: BorderRadius.circular(5),
+        ),
         child: Text(
-          text,
-          style: TextStyle(
-            color: isUser ? Colors.white : CoachColors.text,
-            fontSize: 15.5,
-            height: 1.45,
+          '핑계지수 $score%',
+          style: const TextStyle(
+            color: CoachColors.accent,
+            fontWeight: FontWeight.w900,
+            fontSize: 13,
+            letterSpacing: 0.5,
           ),
         ),
       ),

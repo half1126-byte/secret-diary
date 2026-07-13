@@ -41,6 +41,38 @@ void main() {
     });
   });
 
+  group('핑계지수 파싱', () {
+    test('첫 줄 태그를 분리한다', () {
+      final r = splitExcuseScore('[핑계지수 87%]\n하. 핑계 많다.\n지금 해.');
+      expect(r.score, 87);
+      expect(r.body, '하. 핑계 많다.\n지금 해.');
+    });
+
+    test('태그가 없으면 그대로', () {
+      final r = splitExcuseScore('오. 했네. 인정.');
+      expect(r.score, isNull);
+      expect(r.body, '오. 했네. 인정.');
+    });
+
+    test('100 초과는 100으로 자른다', () {
+      expect(splitExcuseScore('[핑계지수 999%] x').score, 100);
+    });
+  });
+
+  group('CoachPrompt 강도', () {
+    test('강도별 프롬프트가 반영된다', () {
+      expect(CoachPrompt.build([msg('a')], heat: 'nuclear').systemInstruction,
+          contains('NUCLEAR'));
+      expect(CoachPrompt.build([msg('a')], heat: 'mild').systemInstruction,
+          contains('MILD'));
+      // 모르는 값은 기본 매운맛.
+      expect(CoachPrompt.build([msg('a')], heat: '없는맛').systemInstruction,
+          contains('SPICY'));
+      expect(CoachPrompt.build([msg('a')]).systemInstruction,
+          contains('핑계지수'));
+    });
+  });
+
   group('CoachScreen', () {
     testWidgets('메시지를 보내면 팩폭 답장이 온다', (tester) async {
       final env = TestEnv(

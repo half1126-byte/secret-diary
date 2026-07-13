@@ -53,6 +53,15 @@ class SettingsRepository {
 
   Future<void> setPersona(String id) => _prefs.setString(_keyPersona, id);
 
+  static const _keyCoachHeat = 'coach_heat';
+
+  /// 팩폭상담소의 팩폭 강도 ('mild' | 'spicy' | 'nuclear').
+  Future<String> getCoachHeat() async =>
+      await _prefs.getString(_keyCoachHeat) ?? 'spicy';
+
+  Future<void> setCoachHeat(String heat) =>
+      _prefs.setString(_keyCoachHeat, heat);
+
   static const _keyReplyFont = 'reply_font';
   static const _keyReplyScale = 'reply_scale';
   static const _keyRevealMs = 'reveal_ms_per_char';
