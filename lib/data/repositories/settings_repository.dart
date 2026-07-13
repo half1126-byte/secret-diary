@@ -62,6 +62,14 @@ class SettingsRepository {
   Future<void> setCoachHeat(String heat) =>
       _prefs.setString(_keyCoachHeat, heat);
 
+  static const _keyCoachVoice = 'coach_voice';
+
+  /// ENTP 상시 음성 답변. 꺼져 있어도 음성으로 질문하면 그 답은 음성으로 온다.
+  Future<bool> getCoachVoice() async =>
+      await _prefs.getBool(_keyCoachVoice) ?? false;
+
+  Future<void> setCoachVoice(bool on) => _prefs.setBool(_keyCoachVoice, on);
+
   static const _keyReplyFont = 'reply_font';
   static const _keyReplyScale = 'reply_scale';
   static const _keyRevealMs = 'reveal_ms_per_char';

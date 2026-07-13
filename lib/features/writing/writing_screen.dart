@@ -13,6 +13,7 @@ import '../../data/models/chat_message.dart';
 import '../../data/models/diary_entry.dart';
 import '../../data/models/stroke.dart';
 import '../../providers.dart';
+import '../../services/voice/voice_service.dart';
 import '../settings/language_model_sheet.dart';
 import '../settings/settings_screen.dart';
 import 'canvas/handwriting_canvas.dart';
@@ -89,6 +90,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
     with TickerProviderStateMixin {
   late WritingController _writing;
   late EntrySession _session;
+  late TtsService _tts;
   late String _languageTag;
 
   /// true = 캔버스 모드, false = 대화 모드.
@@ -123,6 +125,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
+    _tts = ref.read(ttsServiceProvider);
     _languageTag = widget.entry.languageTag;
     _writing = WritingController(
       recognizer: ref.read(recognizerProvider),
@@ -146,6 +149,7 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
     _revealController.dispose();
     _writing.dispose();
     _session.dispose();
+    _tts.stop();
     super.dispose();
   }
 
@@ -359,6 +363,28 @@ class _WritingScreenState extends ConsumerState<WritingScreen>
                         color: Palette.sage,
                         height: 1.55,
                       ),
+                    ),
+                  ),
+                ),
+              ),
+            // 답장 낭독 — 기기 내장 목소리로 편지를 조용히 읽어준다 (무료).
+            if (_replyReveal != null)
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: AnimatedBuilder(
+                  animation: _revealController,
+                  builder: (context, child) => Opacity(
+                    opacity: _revealController.value,
+                    child: child,
+                  ),
+                  child: IconButton(
+                    tooltip: '답장 들려주기',
+                    icon: const Icon(Icons.volume_up_rounded, size: 20),
+                    color: Palette.inkFaded,
+                    onPressed: () => _tts.speak(
+                      _replyReveal!,
+                      languageTag: ttsLocaleFor(_languageTag),
                     ),
                   ),
                 ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/chat_message.dart';
 import '../providers.dart';
 import '../services/ai/gemini_client.dart';
+import '../services/voice/voice_service.dart';
 import 'coach_app.dart';
 import 'coach_prompt.dart';
 import 'coach_session.dart';
@@ -27,20 +28,32 @@ class CoachScreen extends ConsumerStatefulWidget {
 
 class _CoachScreenState extends ConsumerState<CoachScreen> {
   late final CoachSession _session;
+  late final TtsService _tts;
+  late final SttService _stt;
   final _input = TextEditingController();
   final _scroll = ScrollController();
   String _heat = 'spicy';
+  bool _voiceAlways = false; // 상시 음성 답변 토글.
+  bool _listening = false;
+  bool _speakNextReply = false; // 음성으로 물었으면 답도 음성으로.
 
   @override
   void initState() {
     super.initState();
+    _tts = ref.read(ttsServiceProvider);
+    _stt = ref.read(sttServiceProvider);
     _session = CoachSession(
       repository: ref.read(diaryRepositoryProvider),
       settings: ref.read(settingsRepositoryProvider),
       gemini: ref.read(geminiClientProvider),
+      onAiReply: _onAiReply,
     )..init();
-    ref.read(settingsRepositoryProvider).getCoachHeat().then((heat) {
+    final settings = ref.read(settingsRepositoryProvider);
+    settings.getCoachHeat().then((heat) {
       if (mounted) setState(() => _heat = heat);
+    });
+    settings.getCoachVoice().then((on) {
+      if (mounted) setState(() => _voiceAlways = on);
     });
   }
 
@@ -49,14 +62,54 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     _input.dispose();
     _scroll.dispose();
     _session.dispose();
+    _stt.stop();
+    _tts.stop();
     super.dispose();
   }
 
-  Future<void> _send() async {
+  void _onAiReply(String text) {
+    if (!_voiceAlways && !_speakNextReply) return;
+    _speakNextReply = false;
+    _tts.speak(splitExcuseScore(text).body);
+  }
+
+  Future<void> _send({bool fromVoice = false}) async {
     final text = _input.text;
     if (text.trim().isEmpty) return;
     _input.clear();
+    _speakNextReply = fromVoice;
     await _session.send(text);
+  }
+
+  /// 마이크 토글: 말하면 글자로 받아 적고, 문장이 끝나면 자동 전송.
+  Future<void> _toggleMic() async {
+    if (_listening) {
+      await _stt.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+    await _tts.stop();
+    final ok = await _stt.start(
+      localeId: 'ko_KR',
+      onResult: (text, isFinal) {
+        if (!mounted) return;
+        _input.text = text;
+        if (isFinal) {
+          setState(() => _listening = false);
+          _send(fromVoice: true);
+        }
+      },
+    );
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _listening = true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('마이크를 못 쓴다. 권한 확인하고 다시. (이 기기가 음성 인식 미지원일 수도)'),
+        ),
+      );
+    }
   }
 
   @override
@@ -80,6 +133,22 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
           ],
         ),
         actions: [
+          // 상시 음성 답변 (꺼져 있어도 음성 질문에는 음성으로 답한다).
+          IconButton(
+            tooltip: _voiceAlways ? '음성 답변 끄기' : '음성 답변 켜기',
+            icon: Icon(
+              _voiceAlways ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              size: 21,
+              color: _voiceAlways ? CoachColors.accent : CoachColors.textFaded,
+            ),
+            onPressed: () async {
+              setState(() => _voiceAlways = !_voiceAlways);
+              if (!_voiceAlways) await _tts.stop();
+              await ref
+                  .read(settingsRepositoryProvider)
+                  .setCoachVoice(_voiceAlways);
+            },
+          ),
           // 팩폭 강도 조절 — 순한맛 / 매운맛 / 불닭맛.
           PopupMenuButton<String>(
             tooltip: '팩폭 강도',
@@ -201,6 +270,23 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                   color: CoachColors.bg,
                   child: Row(
                     children: [
+                      // 말로 질문 — 기기 내장 음성 인식(무료).
+                      IconButton(
+                        tooltip: _listening ? '듣는 중… (탭해서 중지)' : '말로 질문',
+                        onPressed: _toggleMic,
+                        icon: Icon(
+                          _listening ? Icons.mic : Icons.mic_none_rounded,
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: _listening
+                              ? CoachColors.accent
+                              : CoachColors.surface,
+                          foregroundColor: _listening
+                              ? Colors.white
+                              : CoachColors.textFaded,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: TextField(
                           controller: _input,
@@ -208,8 +294,10 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                           maxLines: 4,
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _send(),
-                          decoration: const InputDecoration(
-                            hintText: '고민을 풀어놔 봐. 해결까지 간다.',
+                          decoration: InputDecoration(
+                            hintText: _listening
+                                ? '듣고 있다. 말해.'
+                                : '고민을 풀어놔 봐. 해결까지 간다.',
                           ),
                           style: theme.textTheme.bodyMedium,
                         ),

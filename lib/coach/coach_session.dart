@@ -15,9 +15,13 @@ class CoachSession extends ChangeNotifier {
     required DiaryRepository repository,
     required SettingsRepository settings,
     required GeminiClient gemini,
+    this.onAiReply,
   })  : _repository = repository, // ignore: prefer_initializing_formals
         _settings = settings, // ignore: prefer_initializing_formals
         _gemini = gemini; // ignore: prefer_initializing_formals
+
+  /// AI 답장이 도착했을 때 (예: 음성 낭독용).
+  final void Function(String text)? onAiReply;
 
   final DiaryRepository _repository;
   final SettingsRepository _settings;
@@ -93,6 +97,7 @@ class CoachSession extends ChangeNotifier {
         text: reply,
       );
       _status = CoachStatus.idle;
+      if (!_disposed) onAiReply?.call(reply);
     } on GeminiException catch (e) {
       _status = CoachStatus.failed;
       _lastError = e.type;

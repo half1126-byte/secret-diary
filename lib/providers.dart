@@ -10,6 +10,7 @@ import 'services/ai/gemini_client.dart';
 import 'services/handwriting/fake_recognizer.dart';
 import 'services/handwriting/mlkit_recognizer.dart';
 import 'services/handwriting/recognizer.dart';
+import 'services/voice/voice_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -42,6 +43,20 @@ final geminiClientProvider = Provider<GeminiClient>((ref) {
   final client = GeminiClient();
   ref.onDispose(client.dispose);
   return client;
+});
+
+/// 기기 내장 음성 합성(낭독) — 무료, 폰에서만 실제 동작.
+final ttsServiceProvider = Provider<TtsService>((ref) {
+  final tts = RealTtsService();
+  ref.onDispose(tts.dispose);
+  return tts;
+});
+
+/// 기기 내장 음성 인식(말로 입력) — 무료, 폰에서만 실제 동작.
+final sttServiceProvider = Provider<SttService>((ref) {
+  final stt = RealSttService();
+  ref.onDispose(stt.dispose);
+  return stt;
 });
 
 /// 현재 쓰기 언어 (BCP-47). 시작 시 설정에서 불러온다.

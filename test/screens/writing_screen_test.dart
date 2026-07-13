@@ -102,6 +102,11 @@ void main() {
     // 대화 화면으로 전환되지 않고 캔버스 위에 답장이 그대로 써진다.
     expect(find.text('오늘 하루도 수고 많았어요.'), findsOneWidget);
     expect(find.text('이어 쓰기'), findsNothing); // 스레드 모드 FAB 없음 = 캔버스 모드
+
+    // 낭독 버튼: 누르면 기기 목소리로 편지를 읽는다.
+    await tester.tap(find.byIcon(Icons.volume_up_rounded));
+    await tester.pump();
+    expect(env.tts.spoken, ['오늘 하루도 수고 많았어요.']);
     await TestEnv.unmount(tester);
   });
 

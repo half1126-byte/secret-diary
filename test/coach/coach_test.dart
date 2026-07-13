@@ -138,6 +138,46 @@ void main() {
       await TestEnv.unmount(tester);
     });
 
+    testWidgets('마이크로 질문하면 자동 전송되고 답이 음성으로 나온다', (tester) async {
+      final env = TestEnv(
+        apiKey: 'test-key',
+        geminiHttp: MockClient((_) async => http.Response(
+              jsonEncode({
+                'candidates': [
+                  {
+                    'content': {
+                      'parts': [
+                        {'text': '[핑계지수 40%]\n들어봤다. 지금 해.'},
+                      ],
+                    },
+                  },
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            )),
+      );
+      addTearDown(env.dispose);
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: env.overrides,
+        child: const CoachApp(),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(env.stt.started, isTrue);
+      // 가짜 STT의 각본이 그대로 전송됐다.
+      expect(find.text('가짜 음성 인식'), findsOneWidget);
+      // 음성 질문 → 음성 답변. 핑계지수 태그는 읽지 않는다.
+      expect(env.tts.spoken, ['들어봤다. 지금 해.']);
+      await TestEnv.unmount(tester);
+    });
+
     testWidgets('화면이 CoachScreen을 띄운다', (tester) async {
       final env = TestEnv();
       addTearDown(env.dispose);
