@@ -1,0 +1,73 @@
+name: 앱 빌드 (APK + IPA)
+
+on:
+  push:
+    branches:
+      - main
+      - claude/handwritten-diary-ai-app-q4vggn
+  workflow_dispatch:
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - run: flutter pub get
+
+      - name: 테스트
+        run: flutter test
+
+      - name: APK 빌드 (Gemini 키는 저장소 Secrets에서 주입)
+        run: >
+          flutter build apk --release
+          --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+      - name: APK 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-diary-android
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  ios:
+    name: iOS IPA (서명 없음 — Sideloadly/AltStore로 설치)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - run: flutter pub get
+
+      - name: iOS 빌드 (코드서명 없이)
+        run: >
+          flutter build ios --release --no-codesign
+          --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+      - name: IPA 패키징
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -qr secret-diary.ipa Payload
+
+      - name: IPA 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-diary-ios
+          path: secret-diary.ipa

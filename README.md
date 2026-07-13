@@ -56,7 +56,12 @@ flutter build apk --release --dart-define=GEMINI_API_KEY=발급받은키
 ```
 
 - 키는 [aistudio.google.com/apikey](https://aistudio.google.com/apikey)에서 **결제 계정이 연결되지 않은 프로젝트**(등급: 무료)로 발급하세요 — 무료 한도를 넘으면 과금 대신 잠시 대기가 됩니다.
-- 키를 저장소에 커밋하지 마세요. GitHub Actions로 빌드할 때는 저장소 **Secrets**에 넣고 `--dart-define`으로 전달합니다.
+- 키를 저장소에 커밋하지 마세요. GitHub Actions 자동 빌드는 저장소
+  **Settings → Secrets and variables → Actions**에 `GEMINI_API_KEY`라는 이름의
+  Secret을 만들어두면 자동으로 주입됩니다 (없으면 AI 꺼진 빌드가 나옵니다).
+- 푸시할 때마다 **Actions 탭**에서 Android APK와 서명 없는 iOS IPA가
+  자동으로 빌드됩니다. APK는 폰에 바로 설치, IPA는 Windows PC에서
+  Sideloadly/AltStore로 설치하세요 (무료 Apple ID, 7일마다 갱신).
 - 참고: 앱에 내장된 키는 마음먹으면 추출할 수 있으므로, 키에 **Generative Language API 제한**을 걸어두는 것이 안전합니다.
 - 키 없이 빌드하면 손글씨 인식·일기 저장은 그대로 동작하고 AI 답장만 꺼집니다.
 
