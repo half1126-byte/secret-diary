@@ -1,0 +1,121 @@
+import 'package:drift/drift.dart';
+import 'package:drift_flutter/drift_flutter.dart';
+
+part 'app_database.g.dart';
+
+class Entries extends Table {
+  TextColumn get id => text()();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+  TextColumn get languageTag => text()();
+  TextColumn get title => text().nullable()();
+  TextColumn get mood => text().nullable()();
+
+  /// 항목 종류: 'diary' | 'memo' | 'counsel' | 'idea'.
+  TextColumn get kind => text().withDefault(const Constant('diary'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Messages extends Table {
+  TextColumn get id => text()();
+  TextColumn get entryId => text().references(Entries, #id)();
+  TextColumn get role => text()(); // 'user' | 'ai'
+  TextColumn get body => text()();
+  TextColumn get strokesJson => text().nullable()();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Entries, Messages])
+class AppDatabase extends _$AppDatabase {
+  AppDatabase() : super(driftDatabase(name: 'secret_diary'));
+
+  /// 테스트용 인메모리 등 임의 executor 주입.
+  AppDatabase.withExecutor(super.e);
+
+  @override
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(entries, entries.kind);
+          }
+        },
+      );
+
+  /// 최신 항목부터 정렬된 타임라인 스트림.
+  Stream<List<Entry>> watchEntries() {
+    return (select(entries)
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
+        .watch();
+  }
+
+  Future<Entry?> getEntry(String id) =>
+      (select(entries)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  /// 가장 최근에 수정된 항목 (종류 지정 가능).
+  Future<Entry?> latestEntry({String? kind}) {
+    final query = select(entries)
+      ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+      ..limit(1);
+    if (kind != null) query.where((t) => t.kind.equals(kind));
+    return query.getSingleOrNull();
+  }
+
+  /// 해당 월에 항목이 있는 날들 (일 → 대표 항목 id).
+  Future<List<Entry>> entriesInRange(int fromMs, int toMs) {
+    return (select(entries)
+          ..where((t) =>
+              t.createdAt.isBiggerOrEqualValue(fromMs) &
+              t.createdAt.isSmallerThanValue(toMs))
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+        .get();
+  }
+
+  Stream<List<Message>> watchMessages(String entryId) {
+    return (select(messages)
+          ..where((t) => t.entryId.equals(entryId))
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+        .watch();
+  }
+
+  Future<List<Message>> getMessages(String entryId) {
+    return (select(messages)
+          ..where((t) => t.entryId.equals(entryId))
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+        .get();
+  }
+
+  /// 항목의 첫 사용자 메시지 (타임라인 잉크 썸네일용).
+  Future<Message?> firstUserMessage(String entryId) {
+    return (select(messages)
+          ..where((t) => t.entryId.equals(entryId) & t.role.equals('user'))
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// AI 기억 블록용: 최근 항목들의 사용자 텍스트 스니펫.
+  Future<List<Message>> firstUserMessagesOfRecentEntries(int limit) async {
+    final recent = await (select(entries)
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+          ..limit(limit))
+        .get();
+    final result = <Message>[];
+    for (final e in recent) {
+      final m = await (select(messages)
+            ..where((t) => t.entryId.equals(e.id) & t.role.equals('user'))
+            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
+            ..limit(1))
+          .getSingleOrNull();
+      if (m != null) result.add(m);
+    }
+    return result;
+  }
+}
