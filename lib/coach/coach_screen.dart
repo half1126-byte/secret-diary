@@ -217,7 +217,11 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                                   isUser: m.role == MessageRole.user,
                                 ),
                               if (_session.status == CoachStatus.thinking)
-                                const _Bubble(text: '핑계 스캔 중…', isUser: false),
+                                _Bubble(
+                                  // 스트리밍 중엔 도착한 글자를 실시간으로.
+                                  text: _session.streamingText ?? '핑계 스캔 중…',
+                                  isUser: false,
+                                ),
                               if (_session.status == CoachStatus.failed)
                                 _ErrorBubble(
                                   error: _session.lastError,

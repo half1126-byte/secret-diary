@@ -46,6 +46,90 @@ void main() {
     final body = jsonDecode(captured.body) as Map<String, dynamic>;
     expect(body['systemInstruction'], isNotNull);
     expect((body['contents'] as List).single['role'], 'user');
+    // 빠른 답변: 내부 사고 생략.
+    final config = body['generationConfig'] as Map<String, dynamic>;
+    expect((config['thinkingConfig'] as Map)['thinkingBudget'], 0);
+  });
+
+  group('generateReplyStream', () {
+    test('SSE 청크를 누적하며 흘려보낸다', () async {
+      final sse = [
+        'data: ${_okBody('하. ')}',
+        '',
+        'data: ${_okBody('지금 ')}',
+        '',
+        // usage 전용 마지막 청크는 무시된다.
+        'data: {"usageMetadata":{"totalTokenCount":10}}',
+        'data: ${_okBody('해.')}',
+        '',
+      ].join('\n');
+      final client = GeminiClient(
+        httpClient: MockClient((request) async {
+          expect(request.url.path,
+              contains('gemini-2.5-flash:streamGenerateContent'));
+          expect(request.url.queryParameters['alt'], 'sse');
+          return http.Response.bytes(utf8.encode(sse), 200,
+              headers: {'content-type': 'text/event-stream'});
+        }),
+      );
+
+      final chunks = await client
+          .generateReplyStream(
+            apiKey: 'test-key',
+            model: 'gemini-2.5-flash',
+            prompt: _prompt,
+          )
+          .toList();
+
+      expect(chunks, ['하. ', '하. 지금 ', '하. 지금 해.']);
+    });
+
+    test('일반 JSON 응답이면 전체를 한 번에 (모의 서버 폴백)', () async {
+      final client = GeminiClient(
+        httpClient: MockClient((_) async => http.Response(_okBody('전체 답'), 200,
+            headers: {'content-type': 'application/json'})),
+      );
+      final chunks = await client
+          .generateReplyStream(
+            apiKey: 'test-key',
+            model: 'm',
+            prompt: _prompt,
+          )
+          .toList();
+      expect(chunks, ['전체 답']);
+    });
+
+    test('스트림에서도 403은 invalidApiKey', () async {
+      final client = GeminiClient(
+        httpClient: MockClient((_) async => http.Response(
+            '{"error":{"message":"denied"}}', 403,
+            headers: {'content-type': 'application/json'})),
+      );
+      expect(
+        () => client
+            .generateReplyStream(
+                apiKey: 'test-key', model: 'm', prompt: _prompt)
+            .toList(),
+        throwsA(isA<GeminiException>().having(
+            (e) => e.type, 'type', GeminiErrorType.invalidApiKey)),
+      );
+    });
+
+    test('텍스트 없는 SSE 스트림은 other 예외', () async {
+      final client = GeminiClient(
+        httpClient: MockClient((_) async => http.Response(
+            'data: {"usageMetadata":{}}\n', 200,
+            headers: {'content-type': 'text/event-stream'})),
+      );
+      expect(
+        () => client
+            .generateReplyStream(
+                apiKey: 'test-key', model: 'm', prompt: _prompt)
+            .toList(),
+        throwsA(isA<GeminiException>()
+            .having((e) => e.type, 'type', GeminiErrorType.other)),
+      );
+    });
   });
 
   test('키가 없으면 noApiKey 예외', () async {

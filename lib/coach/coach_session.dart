@@ -36,6 +36,10 @@ class CoachSession extends ChangeNotifier {
   GeminiErrorType? _lastError;
   GeminiErrorType? get lastError => _lastError;
 
+  /// 스트리밍으로 도착 중인 답장 (타이핑되듯 실시간 표시용).
+  String? _streamingText;
+  String? get streamingText => _streamingText;
+
   Stream<List<ChatMessage>>? _stream;
   Stream<List<ChatMessage>>? get messageStream => _stream;
 
@@ -83,7 +87,9 @@ class CoachSession extends ChangeNotifier {
         _notify();
         return;
       }
-      final reply = await _gemini.generateReply(
+      // 스트리밍: 글자가 도착하는 대로 화면에 흘려보낸다 (빠른 답변 체감).
+      var reply = '';
+      final stream = _gemini.generateReplyStream(
         apiKey: apiKey,
         model: await _settings.getModel(),
         prompt: CoachPrompt.build(
@@ -91,17 +97,26 @@ class CoachSession extends ChangeNotifier {
           heat: await _settings.getCoachHeat(),
         ),
       );
+      await for (final text in stream) {
+        reply = text;
+        _streamingText = text;
+        _notify();
+      }
       await _repository.appendMessage(
         entryId: _entry!.id,
         role: MessageRole.ai,
         text: reply,
       );
+      // 저장이 끝난 뒤에 지워야 말풍선이 깜빡이지 않는다.
+      _streamingText = null;
       _status = CoachStatus.idle;
       if (!_disposed) onAiReply?.call(reply);
     } on GeminiException catch (e) {
+      _streamingText = null;
       _status = CoachStatus.failed;
       _lastError = e.type;
     } catch (_) {
+      _streamingText = null;
       _status = CoachStatus.failed;
       _lastError = GeminiErrorType.other;
     }

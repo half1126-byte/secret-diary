@@ -53,10 +53,124 @@ class GeminiClient {
     }
 
     final uri = Uri.parse('$_base/models/$model:generateContent');
+    final body = _requestBody(prompt, imagePngBase64);
+
+    for (var attempt = 0; ; attempt++) {
+      http.Response response;
+      try {
+        response = await _http.post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: body,
+        );
+      } on Exception catch (e) {
+        throw GeminiException(GeminiErrorType.network, e.toString());
+      }
+
+      if (response.statusCode == 200) {
+        // 서버 charset 헤더와 무관하게 UTF-8로 해석한다.
+        return _extractText(
+            utf8.decode(response.bodyBytes, allowMalformed: true));
+      }
+      if ((response.statusCode == 429 || response.statusCode == 503) &&
+          attempt < maxRetries) {
+        await Future<void>.delayed(
+            _retryDelay(response.headers['retry-after']));
+        continue;
+      }
+      _throwForStatus(response.statusCode, response.body, model);
+    }
+  }
+
+  /// 답장을 스트리밍으로 받는다 — 첫 글자가 도착하는 즉시 보여줄 수 있어
+  /// 체감 속도가 크게 빨라진다. 누적된 전체 텍스트를 매번 내보낸다.
+  ///
+  /// 서버가 SSE가 아닌 일반 JSON으로 응답하면(테스트·모의 서버) 전체를
+  /// 한 번에 내보내는 폴백으로 동작한다.
+  Stream<String> generateReplyStream({
+    required String apiKey,
+    required String model,
+    required BuiltPrompt prompt,
+    String? imagePngBase64,
+  }) async* {
+    if (apiKey.trim().isEmpty) {
+      throw const GeminiException(GeminiErrorType.noApiKey);
+    }
+
+    final uri =
+        Uri.parse('$_base/models/$model:streamGenerateContent?alt=sse');
+    final body = _requestBody(prompt, imagePngBase64);
+
+    for (var attempt = 0; ; attempt++) {
+      http.StreamedResponse response;
+      try {
+        final request = http.Request('POST', uri)
+          ..headers['Content-Type'] = 'application/json'
+          ..headers['x-goog-api-key'] = apiKey
+          ..body = body;
+        response = await _http.send(request);
+      } on Exception catch (e) {
+        throw GeminiException(GeminiErrorType.network, e.toString());
+      }
+
+      if (response.statusCode != 200) {
+        final errorBody =
+            utf8.decode(await response.stream.toBytes(), allowMalformed: true);
+        if ((response.statusCode == 429 || response.statusCode == 503) &&
+            attempt < maxRetries) {
+          await Future<void>.delayed(
+              _retryDelay(response.headers['retry-after']));
+          continue;
+        }
+        _throwForStatus(response.statusCode, errorBody, model);
+      }
+
+      final contentType = response.headers['content-type'] ?? '';
+      if (!contentType.contains('text/event-stream')) {
+        yield _extractText(
+            utf8.decode(await response.stream.toBytes(), allowMalformed: true));
+        return;
+      }
+
+      var accumulated = '';
+      Stream<String> lines;
+      try {
+        lines = response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+        await for (final line in lines) {
+          if (!line.startsWith('data:')) continue;
+          final data = line.substring(5).trim();
+          if (data.isEmpty || data == '[DONE]') continue;
+          final delta = _tryExtractText(data);
+          if (delta.isEmpty) continue;
+          accumulated += delta;
+          yield accumulated;
+        }
+      } on GeminiException {
+        rethrow;
+      } on Exception catch (e) {
+        // 이미 받은 텍스트가 있으면 살리고, 아니면 네트워크 오류로.
+        if (accumulated.trim().isEmpty) {
+          throw GeminiException(GeminiErrorType.network, e.toString());
+        }
+        return;
+      }
+      if (accumulated.trim().isEmpty) {
+        throw const GeminiException(GeminiErrorType.other, '텍스트 없는 응답');
+      }
+      return;
+    }
+  }
+
+  static String _requestBody(BuiltPrompt prompt, String? imagePngBase64) {
     final turns = prompt.turns;
     final lastUserIndex =
         turns.lastIndexWhere((turn) => turn.role == 'user');
-    final body = jsonEncode({
+    return jsonEncode({
       'systemInstruction': {
         'parts': [
           {'text': prompt.systemInstruction},
@@ -82,58 +196,39 @@ class GeminiClient {
         'temperature': 0.9,
         // 최신 모델은 내부 사고(thinking) 토큰도 이 한도에 포함될 수 있어 여유 있게.
         'maxOutputTokens': 2048,
+        // 빠른 답변: 내부 사고를 생략한다. 설정의 모델이 전부 flash 계열이라
+        // 안전하다 (pro 계열은 0을 허용하지 않음).
+        'thinkingConfig': {'thinkingBudget': 0},
       },
     });
+  }
 
-    for (var attempt = 0; ; attempt++) {
-      http.Response response;
-      try {
-        response = await _http.post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: body,
+  /// 200이 아닌 응답을 사용자 친화적 오류로 바꿔 던진다.
+  static Never _throwForStatus(int statusCode, String body, String model) {
+    switch (statusCode) {
+      case 401:
+      case 403:
+        throw GeminiException(
+            GeminiErrorType.invalidApiKey, _errorMessage(body));
+      case 400:
+        // 400은 대개 요청 자체의 문제다. 키 문제로 명시된 경우만 키 오류로.
+        final message = _errorMessage(body);
+        if (_errorStatus(body) == 'API_KEY_INVALID' ||
+            message.contains('API key not valid')) {
+          throw GeminiException(GeminiErrorType.invalidApiKey, message);
+        }
+        throw GeminiException(GeminiErrorType.other, '잘못된 요청: $message');
+      case 404:
+        throw GeminiException(
+            GeminiErrorType.other, '모델($model)을 찾을 수 없어요 — 설정에서 모델을 확인해 주세요.');
+      case 429:
+      case 503:
+        throw GeminiException(GeminiErrorType.rateLimited, _errorMessage(body));
+      default:
+        throw GeminiException(
+          GeminiErrorType.other,
+          'HTTP $statusCode: ${_errorMessage(body)}',
         );
-      } on Exception catch (e) {
-        throw GeminiException(GeminiErrorType.network, e.toString());
-      }
-
-      switch (response.statusCode) {
-        case 200:
-          // 서버 charset 헤더와 무관하게 UTF-8로 해석한다.
-          return _extractText(
-              utf8.decode(response.bodyBytes, allowMalformed: true));
-        case 401:
-        case 403:
-          throw GeminiException(
-              GeminiErrorType.invalidApiKey, _errorMessage(response.body));
-        case 400:
-          // 400은 대개 요청 자체의 문제다. 키 문제로 명시된 경우만 키 오류로.
-          final message = _errorMessage(response.body);
-          if (_errorStatus(response.body) == 'API_KEY_INVALID' ||
-              message.contains('API key not valid')) {
-            throw GeminiException(GeminiErrorType.invalidApiKey, message);
-          }
-          throw GeminiException(GeminiErrorType.other, '잘못된 요청: $message');
-        case 404:
-          throw GeminiException(
-              GeminiErrorType.other, '모델($model)을 찾을 수 없어요 — 설정에서 모델을 확인해 주세요.');
-        case 429:
-        case 503:
-          if (attempt < maxRetries) {
-            await Future<void>.delayed(_retryDelay(response));
-            continue;
-          }
-          throw GeminiException(
-              GeminiErrorType.rateLimited, _errorMessage(response.body));
-        default:
-          throw GeminiException(
-            GeminiErrorType.other,
-            'HTTP ${response.statusCode}: ${_errorMessage(response.body)}',
-          );
-      }
     }
   }
 
@@ -157,13 +252,32 @@ class GeminiClient {
     }
   }
 
-  static Duration _retryDelay(http.Response response) {
-    final header = response.headers['retry-after'];
-    final seconds = header == null ? null : int.tryParse(header);
+  static Duration _retryDelay(String? retryAfterHeader) {
+    final seconds =
+        retryAfterHeader == null ? null : int.tryParse(retryAfterHeader);
     final delay = Duration(seconds: seconds ?? 4);
     return delay > const Duration(seconds: 15)
         ? const Duration(seconds: 15)
         : delay;
+  }
+
+  /// 스트림 청크에서 텍스트 델타를 꺼낸다. 없으면 빈 문자열
+  /// (마지막 usage 전용 청크 등은 조용히 무시).
+  static String _tryExtractText(String data) {
+    try {
+      final json = jsonDecode(data) as Map<String, dynamic>;
+      final candidates = json['candidates'] as List<dynamic>?;
+      if (candidates == null || candidates.isEmpty) return '';
+      final content = (candidates.first as Map<String, dynamic>)['content']
+          as Map<String, dynamic>?;
+      final parts = content?['parts'] as List<dynamic>?;
+      return parts
+              ?.map((p) => (p as Map<String, dynamic>)['text'] as String? ?? '')
+              .join() ??
+          '';
+    } catch (_) {
+      return '';
+    }
   }
 
   static String _extractText(String body) {
