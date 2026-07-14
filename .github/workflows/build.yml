@@ -63,22 +63,40 @@ jobs:
 
       - run: flutter pub get
 
-      - name: iOS 빌드 (코드서명 없이)
+      - name: Re:Me iOS 빌드 (코드서명 없이)
         run: >
           flutter build ios --release --no-codesign
           --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
-      - name: IPA 패키징
+      - name: Re:Me IPA 패키징
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
           zip -qr secret-diary.ipa Payload
+          rm -rf Payload
+
+      - name: ENTP iOS 빌드 (앱 ID·이름 분리 후 코드서명 없이)
+        run: |
+          # 아이폰에 Re:Me와 나란히 설치되도록 번들 ID와 표시 이름을 바꾼다.
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = dev\.secretdiary\.secretDiary;/PRODUCT_BUNDLE_IDENTIFIER = dev.secretdiary.coach;/g' ios/Runner.xcodeproj/project.pbxproj
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ENTP" ios/Runner/Info.plist
+          flutter build ios --release --no-codesign \
+            --dart-define=APP_MODE=coach \
+            --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+      - name: ENTP IPA 패키징
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -qr coach.ipa Payload
 
       - name: IPA 업로드
         uses: actions/upload-artifact@v4
         with:
           name: secret-diary-ios
-          path: secret-diary.ipa
+          path: |
+            secret-diary.ipa
+            coach.ipa
 
   release:
     name: Releases에 등록 (로그인 없이 다운로드)
@@ -105,9 +123,11 @@ jobs:
           body: |
             ✍️ Re:Me — 일기를 쓰면, 답장이 와요.
             - `secret-diary.apk` — Re:Me (손글씨 일기), Android 폰에서 바로 설치
-            - `coach.apk` — ENTP (고민을 들어주고 핵심을 찌르는 직설 상담), Android 전용
+            - `coach.apk` — ENTP (고민을 들어주고 핵심을 찌르는 직설 상담), Android용
             - `secret-diary.ipa` — Re:Me iPhone용, PC의 Sideloadly로 설치
+            - `coach.ipa` — ENTP iPhone용, PC의 Sideloadly로 설치
           files: |
             secret-diary.apk
             coach.apk
             secret-diary.ipa
+            coach.ipa

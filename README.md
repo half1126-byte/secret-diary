@@ -125,5 +125,5 @@ lib/
 경청 → 핵심 진단 → 해결책 제시(옵션+추천) → 행동 명령(시간 포함) → 검증 예고
 순서로 답한다. 비아냥이 아니라, 들어주되 핵심을 찌르고 해결책을 준다.
 
-- Android: Releases의 `coach.apk` (Re:Me와 나란히 설치됨)
+- Android: Releases의 `coach.apk`, iPhone: `coach.ipa` (둘 다 Re:Me와 나란히 설치됨)
 - 개발 실행: `flutter run --flavor coach --dart-define=APP_MODE=coach --dart-define=GEMINI_API_KEY=키`
